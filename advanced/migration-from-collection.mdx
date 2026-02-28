@@ -1,0 +1,593 @@
+---
+title: Migrating from Collection
+description: Step-by-step guide for migrating from Laravel's Collection to ListCollection, including breaking changes, blocked methods, and migration strategies
+---
+
+## Overview
+
+Migrating from `Collection` to `ListCollection` is straightforward, but requires understanding key behavioral differences and blocked methods.
+
+<Note>
+ListCollection extends Collection, so most methods work identically. The main difference is automatic reindexing to maintain sequential 0-based integer keys.
+</Note>
+
+## Key Differences
+
+### Automatic Reindexing
+
+The most significant difference is that ListCollection **always maintains sequential 0-based keys**:
+
+```php
+// Collection - keys can be non-sequential
+$collection = new Collection(['a' => 1, 'b' => 2, 'c' => 3]);
+$collection->all(); // ['a' => 1, 'b' => 2, 'c' => 3]
+
+// ListCollection - always reindexes
+$list = new ListCollection(['a' => 1, 'b' => 2, 'c' => 3]);
+$list->all(); // [0 => 1, 1 => 2, 2 => 3]
+```
+
+### Keys Are Always Integers
+
+```php
+// Collection - can use any key type
+$collection = new Collection();
+$collection['email'] = 'user@example.com';
+$collection->all(); // ['email' => 'user@example.com']
+
+// ListCollection - string keys are ignored, item is appended
+$list = new ListCollection();
+$list['email'] = 'user@example.com';
+$list->all(); // [0 => 'user@example.com']
+```
+
+### Filter Behavior
+
+```php
+// Collection - preserves original keys
+$collection = new Collection([0 => 'a', 1 => 'b', 2 => 'c']);
+$filtered = $collection->filter(fn($v) => $v !== 'b');
+$filtered->all(); // [0 => 'a', 2 => 'c'] - note the gap!
+
+// ListCollection - reindexes automatically
+$list = new ListCollection(['a', 'b', 'c']);
+$filtered = $list->filter(fn($v) => $v !== 'b');
+$filtered->all(); // [0 => 'a', 1 => 'c'] - sequential!
+```
+
+## Blocked Methods
+
+ListCollection blocks methods that would produce associative (non-sequential) keys. These methods throw `BadMethodCallException`.
+
+### flip()
+
+```php
+// Collection
+$collection = new Collection(['a', 'b', 'c']);
+$flipped = $collection->flip();
+$flipped->all(); // ['a' => 0, 'b' => 1, 'c' => 2]
+
+// ListCollection - throws exception
+$list = new ListCollection(['a', 'b', 'c']);
+$list->flip(); // ❌ BadMethodCallException
+```
+
+**Migration**: Use standard Collection for flip operations:
+
+```php
+$flipped = (new Collection($list))->flip();
+```
+
+### combine()
+
+```php
+// Collection
+$collection = new Collection(['a', 'b']);
+$combined = $collection->combine([1, 2]);
+$combined->all(); // ['a' => 1, 'b' => 2]
+
+// ListCollection - throws exception
+$list = new ListCollection(['a', 'b']);
+$list->combine([1, 2]); // ❌ BadMethodCallException
+```
+
+**Migration**: Convert to Collection first:
+
+```php
+$combined = (new Collection($list))->combine([1, 2]);
+```
+
+### groupBy()
+
+```php
+// Collection
+$collection = new Collection([
+    ['type' => 'fruit', 'name' => 'apple'],
+    ['type' => 'vegetable', 'name' => 'carrot'],
+    ['type' => 'fruit', 'name' => 'banana'],
+]);
+$grouped = $collection->groupBy('type');
+// ['fruit' => [...], 'vegetable' => [...]]
+
+// ListCollection - throws exception
+$list = new ListCollection([...]);
+$list->groupBy('type'); // ❌ BadMethodCallException
+```
+
+**Migration**: Use Collection for grouping:
+
+```php
+$grouped = (new Collection($list))->groupBy('type');
+```
+
+### keyBy()
+
+```php
+// Collection
+$collection = new Collection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+]);
+$keyed = $collection->keyBy('id');
+// [1 => ['id' => 1, ...], 2 => ['id' => 2, ...]]
+
+// ListCollection - throws exception
+$list = new ListCollection([...]);
+$list->keyBy('id'); // ❌ BadMethodCallException
+```
+
+**Migration**: Use Collection:
+
+```php
+$keyed = (new Collection($list))->keyBy('id');
+```
+
+### countBy()
+
+```php
+// Collection
+$collection = new Collection(['a', 'b', 'a', 'c', 'b', 'a']);
+$counted = $collection->countBy();
+// ['a' => 3, 'b' => 2, 'c' => 1]
+
+// ListCollection - throws exception
+$list = new ListCollection(['a', 'b', 'a']);
+$list->countBy(); // ❌ BadMethodCallException
+```
+
+**Migration**: Convert to Collection:
+
+```php
+$counted = (new Collection($list))->countBy();
+```
+
+### mapWithKeys()
+
+```php
+// Collection
+$collection = new Collection([1, 2, 3]);
+$mapped = $collection->mapWithKeys(fn($v) => ["key_{$v}" => $v * 2]);
+// ['key_1' => 2, 'key_2' => 4, 'key_3' => 6]
+
+// ListCollection - throws exception
+$list = new ListCollection([1, 2, 3]);
+$list->mapWithKeys(fn($v) => [...]); // ❌ BadMethodCallException
+```
+
+**Migration**: Use `map()` if you only need values:
+
+```php
+// Just transform values
+$mapped = $list->map(fn($v) => $v * 2);
+
+// If you need custom keys, use Collection
+$mapped = (new Collection($list))->mapWithKeys(fn($v) => [...]);
+```
+
+### mapToDictionary() & mapToGroups()
+
+```php
+// Collection
+$collection = new Collection([
+    ['type' => 'a', 'value' => 1],
+    ['type' => 'b', 'value' => 2],
+]);
+$dictionary = $collection->mapToDictionary(
+    fn($item) => [$item['type'] => $item['value']]
+);
+
+// ListCollection - throws exception
+$list->mapToDictionary(fn($item) => [...]); // ❌ BadMethodCallException
+$list->mapToGroups(fn($item) => [...]); // ❌ BadMethodCallException
+```
+
+**Migration**: Use Collection for these operations.
+
+### pluck() with Key Parameter
+
+```php
+// Collection - can specify key
+$collection = new Collection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+]);
+$plucked = $collection->pluck('name', 'id');
+// [1 => 'Alice', 2 => 'Bob']
+
+// ListCollection - key parameter not allowed
+$list = new ListCollection([...]);
+$list->pluck('name', 'id'); // ❌ BadMethodCallException
+
+// But pluck without key works fine
+$names = $list->pluck('name'); // ✅ [0 => 'Alice', 1 => 'Bob']
+```
+
+**Migration**: Use `pluck()` without the key parameter:
+
+```php
+// ❌ Before (Collection)
+$plucked = $collection->pluck('name', 'id');
+
+// ✅ After (ListCollection) - sequential keys
+$names = $list->pluck('name');
+
+// If you need the IDs as keys, use Collection
+$plucked = (new Collection($list))->pluck('name', 'id');
+```
+
+## Migration Strategy
+
+### Step 1: Identify Collections That Should Be Lists
+
+Ask yourself:
+
+- ✅ Do I need sequential 0-based integer keys?
+- ✅ Is this data being serialized to JSON as an array?
+- ✅ Do I iterate over items by position rather than by key?
+- ✅ Is this a list of homogeneous items (all the same type)?
+
+If yes to most questions, consider ListCollection.
+
+### Step 2: Update Type Hints
+
+```php
+// Before
+use Illuminate\Support\Collection;
+
+class ProductRepository
+{
+    public function getActiveProducts(): Collection
+    {
+        return Product::where('active', true)
+            ->get()
+            ->values(); // Manual reindexing
+    }
+}
+
+// After
+use dhy\LaravelList\ListCollection;
+
+class ProductRepository
+{
+    /** @return ListCollection<Product> */
+    public function getActiveProducts(): ListCollection
+    {
+        return new ListCollection(
+            Product::where('active', true)->get()
+        ); // Automatic reindexing
+    }
+}
+```
+
+### Step 3: Replace Constructor Calls
+
+```php
+// Before
+$collection = new Collection([1, 2, 3]);
+$collection = collect([1, 2, 3]);
+$collection = Collection::make([1, 2, 3]);
+
+// After
+$list = new ListCollection([1, 2, 3]);
+$list = ListCollection::make([1, 2, 3]);
+```
+
+### Step 4: Remove Manual Reindexing
+
+ListCollection handles this automatically:
+
+```php
+// Before - manual reindexing
+$collection = collect($data)
+    ->filter(fn($item) => $item->active)
+    ->values(); // Manual reindex
+
+// After - automatic reindexing
+$list = ListCollection::make($data)
+    ->filter(fn($item) => $item->active);
+    // No ->values() needed!
+```
+
+### Step 5: Handle Blocked Methods
+
+Review code for blocked methods and use alternatives:
+
+```php
+// Before
+$grouped = $collection->groupBy('category');
+$keyed = $collection->keyBy('id');
+
+// After - use Collection when you need associative keys
+$grouped = (new Collection($list))->groupBy('category');
+$keyed = (new Collection($list))->keyBy('id');
+
+// Or keep as Collection if grouping is the primary operation
+$collection = collect($data); // Keep as Collection
+$grouped = $collection->groupBy('category');
+```
+
+### Step 6: Update Tests
+
+```php
+// Before
+use Illuminate\Support\Collection;
+
+test('filters active items', function () {
+    $collection = new Collection([
+        ['id' => 1, 'active' => true],
+        ['id' => 2, 'active' => false],
+        ['id' => 3, 'active' => true],
+    ]);
+    
+    $filtered = $collection->filter(fn($item) => $item['active']);
+    
+    expect(array_keys($filtered->all()))->toBe([0, 2]); // Non-sequential
+});
+
+// After
+use dhy\LaravelList\ListCollection;
+
+test('filters active items', function () {
+    $list = new ListCollection([
+        ['id' => 1, 'active' => true],
+        ['id' => 2, 'active' => false],
+        ['id' => 3, 'active' => true],
+    ]);
+    
+    $filtered = $list->filter(fn($item) => $item['active']);
+    
+    expect(array_keys($filtered->all()))->toBe([0, 1]); // Sequential!
+});
+```
+
+## Common Migration Patterns
+
+### Pattern 1: API Resources
+
+```php
+// Before
+class UserController
+{
+    public function index()
+    {
+        $users = User::all()->map(fn($user) => [
+            'id' => $user->id,
+            'name' => $user->name,
+        ])->values(); // Manual reindex for JSON array
+        
+        return response()->json(['users' => $users]);
+    }
+}
+
+// After
+use dhy\LaravelList\ListCollection;
+
+class UserController
+{
+    public function index()
+    {
+        $users = ListCollection::make(User::all())
+            ->map(fn($user) => [
+                'id' => $user->id,
+                'name' => $user->name,
+            ]); // Automatic sequential keys
+        
+        return response()->json(['users' => $users]);
+    }
+}
+```
+
+### Pattern 2: Filtering Eloquent Results
+
+```php
+// Before
+$products = Product::where('category', 'electronics')
+    ->get()
+    ->filter(fn($p) => $p->inStock())
+    ->values(); // Reindex after filter
+
+// After
+$products = new ListCollection(
+    Product::where('category', 'electronics')->get()
+)->filter(fn($p) => $p->inStock());
+// Automatic reindex!
+```
+
+### Pattern 3: Data Transformation Pipelines
+
+```php
+// Before
+$result = collect($data)
+    ->map(fn($item) => $this->transform($item))
+    ->filter(fn($item) => $item !== null)
+    ->unique('id')
+    ->values() // Reindex
+    ->all();
+
+// After
+$result = ListCollection::make($data)
+    ->map(fn($item) => $this->transform($item))
+    ->filter(fn($item) => $item !== null)
+    ->unique('id')
+    ->all(); // Already sequential
+```
+
+### Pattern 4: Combining Collections
+
+```php
+// Before
+$combined = collect($list1)
+    ->merge($list2)
+    ->merge($list3)
+    ->values(); // Ensure sequential
+
+// After
+$combined = ListCollection::make($list1)
+    ->merge($list2)
+    ->merge($list3); // Always sequential
+```
+
+## Gradual Migration Approach
+
+<Tip>
+You don't need to migrate everything at once. ListCollection extends Collection, so they're compatible in most contexts.
+</Tip>
+
+### Phase 1: New Code
+
+Use ListCollection for all new features where sequential keys are needed:
+
+```php
+// New endpoints
+public function newEndpoint(): ListCollection
+{
+    return ListCollection::make(Model::all());
+}
+```
+
+### Phase 2: Low-Risk Areas
+
+Migrate simple, well-tested areas first:
+
+```php
+// Simple data transformations
+$tags = ListCollection::make($post->tags->pluck('name'));
+```
+
+### Phase 3: High-Traffic Areas
+
+Once confident, migrate critical paths:
+
+```php
+// API responses
+public function index(): JsonResponse
+{
+    return response()->json([
+        'items' => ListCollection::make($this->repository->getAll())
+    ]);
+}
+```
+
+### Phase 4: Refactor
+
+Remove manual `->values()` calls and simplify code:
+
+```php
+// Before: Multiple manual reindexes
+$result = collect($data)
+    ->filter($fn1)->values()
+    ->map($fn2)
+    ->unique()->values()
+    ->all();
+
+// After: Clean and automatic
+$result = ListCollection::make($data)
+    ->filter($fn1)
+    ->map($fn2)
+    ->unique()
+    ->all();
+```
+
+## Testing Your Migration
+
+### Key Assertions
+
+```php
+use dhy\LaravelList\ListCollection;
+
+test('returns ListCollection instance', function () {
+    $result = $this->service->getData();
+    
+    expect($result)->toBeInstanceOf(ListCollection::class);
+});
+
+test('has sequential keys', function () {
+    $list = $this->service->getData();
+    
+    expect(array_keys($list->all()))
+        ->toBe(range(0, $list->count() - 1));
+});
+
+test('serializes to JSON array', function () {
+    $list = new ListCollection(['a', 'b', 'c']);
+    
+    expect($list->toJson())->toBe('["a","b","c"]');
+});
+```
+
+### Behavioral Tests
+
+```php
+test('filter maintains sequential keys', function () {
+    $list = new ListCollection([1, 2, 3, 4, 5]);
+    
+    $filtered = $list->filter(fn($v) => $v > 2);
+    
+    expect($filtered->all())->toBe([0 => 3, 1 => 4, 2 => 5]);
+});
+
+test('blocked method throws exception', function () {
+    $list = new ListCollection([1, 2, 3]);
+    
+    $list->keyBy('id');
+})->throws(BadMethodCallException::class);
+```
+
+## Checklist
+
+Use this checklist for each migration:
+
+- [ ] Identify collections that should have sequential keys
+- [ ] Update type hints and imports
+- [ ] Replace `new Collection()` with `new ListCollection()`
+- [ ] Remove manual `->values()` calls
+- [ ] Search for blocked methods (flip, groupBy, keyBy, etc.)
+- [ ] Convert blocked method usage to Collection or find alternatives
+- [ ] Update tests to expect sequential keys
+- [ ] Verify JSON serialization produces arrays, not objects
+- [ ] Run static analysis (PHPStan) to catch type issues
+- [ ] Test thoroughly in staging environment
+
+## Getting Help
+
+If you encounter issues during migration:
+
+1. Check the [blocked methods list](#blocked-methods) above
+2. Review [performance considerations](/advanced/performance)
+3. See [type safety guide](/advanced/type-safety) for PHPStan issues
+4. Open an issue at [github.com/dhy/laravel-list](https://github.com/dhy/laravel-list)
+
+## Summary
+
+- ListCollection automatically maintains sequential keys
+- Most Collection methods work identically
+- Eight methods are blocked because they produce associative keys
+- Remove manual `->values()` calls after migration
+- Migrate gradually, starting with new code and low-risk areas
+- Use Collection when you need associative keys or grouping
+
+## Next Steps
+
+- Review [Type Safety](/advanced/type-safety) for PHPStan integration
+- Understand [Performance](/advanced/performance) characteristics
+- Check the [API Reference](/api-reference) for all available methods

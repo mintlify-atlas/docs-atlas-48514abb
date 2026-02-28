@@ -1,0 +1,91 @@
+---
+title: Constructor
+description: Learn how to create a ListCollection instance with automatic reindexing
+---
+
+## Overview
+
+The `ListCollection` constructor creates a new list collection from an array, iterable, or Arrayable object. It automatically reindexes all keys to sequential integers starting from 0, ensuring the list structure is maintained.
+
+## Signature
+
+```php
+public function __construct($items = [])
+```
+
+<ParamField path="items" type="\Illuminate\Contracts\Support\Arrayable<array-key, TValue>|iterable<array-key, TValue>|null" default="[]">
+  The items to include in the collection. Can be an array, Collection, or any iterable object.
+</ParamField>
+
+## Behavior
+
+The constructor performs two key operations:
+
+1. **Calls parent constructor**: Initializes the Collection with the provided items
+2. **Reindexes keys**: Converts all keys to sequential integers (0, 1, 2, ...) using `array_values()`
+
+This ensures that regardless of the input array's keys, the resulting collection always maintains list structure with sequential integer keys.
+
+## Examples
+
+### Creating from associative array
+
+Associative keys are discarded and replaced with sequential integers:
+
+```php
+$list = new ListCollection(['a' => 1, 'b' => 2, 'c' => 3]);
+
+$list->all();
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+### Creating from non-sequential keys
+
+Non-sequential integer keys are reindexed:
+
+```php
+$list = new ListCollection([5 => 'a', 10 => 'b', 15 => 'c']);
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+### Creating from empty input
+
+```php
+$list = new ListCollection();
+
+$list->all();
+// []
+
+$list->count();
+// 0
+```
+
+### Creating from a Collection
+
+You can create a ListCollection from an existing Laravel Collection:
+
+```php
+$collection = new Collection(['x' => 1, 'y' => 2, 'z' => 3]);
+$list = new ListCollection($collection);
+
+$list->all();
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+### Creating with single item
+
+```php
+$list = new ListCollection(['only']);
+
+$list->all();
+// [0 => 'only']
+```
+
+## Key Points
+
+- All keys are automatically converted to sequential integers (0, 1, 2, ...)
+- Original keys are discarded, preserving only values and their order
+- Works with arrays, Collections, and any iterable objects
+- Empty collections are valid and contain no elements

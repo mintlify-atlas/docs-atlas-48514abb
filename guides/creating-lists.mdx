@@ -1,0 +1,100 @@
+---
+title: Creating Lists
+description: Learn how to create ListCollections using various methods including constructor, make(), times(), wrap(), and from existing Collections.
+---
+
+ListCollection provides multiple ways to create list instances. All methods automatically re-index keys to maintain sequential numeric indices starting from 0.
+
+## Using the Constructor
+
+The most straightforward way to create a ListCollection is using the `new` keyword:
+
+```php
+use dhy\LaravelList\ListCollection;
+
+// From a simple array
+$list = new ListCollection(['a', 'b', 'c']);
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+
+// Empty list
+$list = new ListCollection();
+// Result: []
+
+// Single item
+$list = new ListCollection(['only']);
+// Result: [0 => 'only']
+```
+
+### Automatic Re-indexing
+
+ListCollection automatically re-indexes arrays with associative or non-sequential keys:
+
+```php
+// Associative array keys are discarded
+$list = new ListCollection(['a' => 1, 'b' => 2, 'c' => 3]);
+// Result: [0 => 1, 1 => 2, 2 => 3]
+
+// Non-sequential numeric keys are re-indexed
+$list = new ListCollection([5 => 'a', 10 => 'b', 15 => 'c']);
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+<Note>
+Any keys from the input array are ignored and replaced with sequential numeric indices starting from 0.
+</Note>
+
+## From an Existing Collection
+
+You can convert a standard Laravel Collection to a ListCollection:
+
+```php
+use Illuminate\Support\Collection;
+
+$collection = new Collection(['x' => 1, 'y' => 2, 'z' => 3]);
+$list = new ListCollection($collection);
+
+// Keys are re-indexed
+// Result: [0 => 1, 1 => 2, 2 => 3]
+```
+
+## Using Static Factory Methods
+
+ListCollection inherits Laravel Collection's static factory methods, all of which return ListCollection instances.
+
+### make()
+
+Create a ListCollection from any iterable:
+
+```php
+$list = ListCollection::make(['z' => 3, 'a' => 1]);
+// Result: [0 => 3, 1 => 1]
+```
+
+### times()
+
+Generate a ListCollection by invoking a callback a specified number of times:
+
+```php
+$list = ListCollection::times(3, fn (int $i): int => $i * 10);
+// Result: [0 => 10, 1 => 20, 2 => 30]
+```
+
+The callback receives the 1-based iteration number (1, 2, 3, etc.).
+
+### wrap()
+
+Wrap a single value in a ListCollection:
+
+```php
+$list = ListCollection::wrap('single');
+// Result: [0 => 'single']
+```
+
+<Tip>
+All creation methods guarantee that the resulting ListCollection will have sequential numeric keys starting from 0, regardless of the input structure.
+</Tip>
+
+## Related Methods
+
+- [Modifying Lists](/guides/modifying-lists) - Add or remove elements
+- [Transforming Data](/guides/transforming-data) - Transform list contents

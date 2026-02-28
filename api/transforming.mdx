@@ -1,0 +1,258 @@
+---
+title: Transforming
+description: Methods for transforming ListCollection elements while maintaining sequential keys
+---
+
+## Overview
+
+ListCollection provides methods to transform elements. All transformation methods return collections with sequential integer keys.
+
+## map()
+
+Transform each element using a callback and return a new collection.
+
+### Signature
+
+```php
+public function map(callable $callback): static
+```
+
+<ParamField path="callback" type="callable(TValue, int): TMapValue" required>
+  Callback that receives value and index, returns transformed value.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$mapped = $list->map(fn(int $v): int => $v * 2);
+
+$mapped->all();
+// [0 => 2, 1 => 4, 2 => 6]
+```
+
+## transform()
+
+Transform the collection in place by applying a callback to each element.
+
+### Signature
+
+```php
+public function transform(callable $callback): static
+```
+
+<ParamField path="callback" type="callable(TValue, int): TMapValue" required>
+  Callback that receives value and index, returns transformed value.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$list->transform(fn(int $v): int => $v * 10);
+
+$list->all();
+// [0 => 10, 1 => 20, 2 => 30]
+```
+
+### Difference from map()
+
+- `map()` returns a new collection (immutable)
+- `transform()` modifies the collection in place (mutable)
+- Both ensure sequential keys are maintained
+
+## flatMap()
+
+Map each element to an array and flatten the results.
+
+### Signature
+
+```php
+public function flatMap(callable $callback): static
+```
+
+<ParamField path="callback" type="callable(TValue, int): array" required>
+  Callback that returns an array for each element.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->flatMap(fn(int $v): array => [$v, $v * 10]);
+
+$result->all();
+// [0 => 1, 1 => 10, 2 => 2, 3 => 20, 4 => 3, 5 => 30]
+```
+
+## flatten()
+
+Flatten a multi-dimensional collection into a single level.
+
+### Signature
+
+```php
+public function flatten($depth = INF): static
+```
+
+<ParamField path="depth" type="int" default="INF">
+  Maximum depth to flatten.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([[1, 2], [3, 4], [5]]);
+$result = $list->flatten();
+
+$result->all();
+// [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+## collapse()
+
+Collapse a collection of arrays into a single flat collection.
+
+### Signature
+
+```php
+public function collapse(): static
+```
+
+### Examples
+
+```php
+$list = new ListCollection([[1, 2], [3, 4], [5]]);
+$result = $list->collapse();
+
+$result->all();
+// [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+## pluck()
+
+Extract values for a given field from a collection of arrays or objects.
+
+### Signature
+
+```php
+public function pluck($value, $key = null): static
+```
+
+<ParamField path="value" type="string" required>
+  The field name to extract.
+</ParamField>
+
+<ParamField path="key" type="string|null" default="null">
+  **Not supported.** Passing a non-null value throws `BadMethodCallException` because it would produce associative keys.
+</ParamField>
+
+### Examples
+
+#### Pluck without key
+
+```php
+$list = new ListCollection([
+    ['id' => 10, 'name' => 'Alice'],
+    ['id' => 20, 'name' => 'Bob'],
+]);
+
+$result = $list->pluck('name');
+
+$result->all();
+// [0 => 'Alice', 1 => 'Bob']
+```
+
+#### Pluck with key throws exception
+
+```php
+$list = new ListCollection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+]);
+
+// This throws BadMethodCallException
+$list->pluck('name', 'id');
+```
+
+## Additional Transformation Methods
+
+### reverse()
+
+Reverse the order of elements.
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$reversed = $list->reverse();
+
+$reversed->all();
+// [0 => 3, 1 => 2, 2 => 1]
+```
+
+### merge()
+
+Merge with another array or collection.
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->merge([4, 5]);
+
+$result->all();
+// [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+### concat()
+
+Concatenate values onto the collection.
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->concat([4, 5]);
+
+$result->all();
+// [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+### replace()
+
+Replace elements at specific indices.
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$result = $list->replace([1 => 'B']);
+
+$result->all();
+// [0 => 'a', 1 => 'B', 2 => 'c']
+```
+
+### pad()
+
+Pad the collection to a specified length.
+
+```php
+$list = new ListCollection([1, 2]);
+$result = $list->pad(5, 0);
+
+$result->all();
+// [0 => 1, 1 => 2, 2 => 0, 3 => 0, 4 => 0]
+```
+
+### zip()
+
+Zip the collection with another array.
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->zip(['a', 'b', 'c']);
+
+// Returns collection of pairs: [[1, 'a'], [2, 'b'], [3, 'c']]
+```
+
+## Key Points
+
+- All transformation methods return `ListCollection` with sequential keys (0, 1, 2, ...)
+- `map()` returns new collection, `transform()` modifies in place
+- `flatMap()`, `flatten()`, and `collapse()` reduce nested structures
+- `pluck()` extracts field values; does not support key parameter (would break list structure)
+- Results always maintain sequential integer indexing
+- Methods can be chained for complex transformations

@@ -1,0 +1,128 @@
+---
+title: Introduction
+description: A Laravel Collection wrapper that enforces sequential 0-based integer keys at all times, ensuring predictable list behavior.
+---
+
+## What is Laravel List?
+
+Laravel List is a lightweight Laravel package that provides `ListCollection`, a specialized collection class that enforces sequential 0-based integer keys (0, 1, 2, 3...) at all times. It extends Laravel's powerful `Collection` class while guaranteeing true list behavior.
+
+## The Problem It Solves
+
+Laravel's standard `Collection` class is incredibly versatile, but this flexibility can lead to unexpected behavior when you need predictable, sequential keys:
+
+```php
+use Illuminate\Support\Collection;
+
+$collection = collect([1, 2, 3, 4, 5]);
+$filtered = $collection->filter(fn($v) => $v > 2);
+
+// Unexpected: Keys are preserved from original collection
+$filtered->all(); // [2 => 3, 3 => 4, 4 => 5]
+
+// Problems arise:
+$filtered[0]; // null (key 0 doesn't exist!)
+$filtered->toJson(); // {"2":3,"3":4,"4":5} (JSON object, not array)
+```
+
+With `ListCollection`, keys are automatically reindexed after every operation:
+
+```php
+use dhy\LaravelList\ListCollection;
+
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$filtered = $list->filter(fn($v) => $v > 2);
+
+// Keys are always sequential
+$filtered->all(); // [0 => 3, 1 => 4, 2 => 5]
+$filtered[0]; // 3 (predictable access)
+$filtered->toJson(); // [3,4,5] (JSON array)
+```
+
+## Key Features
+
+<CardGroup cols={2}>
+  <Card title="Automatic Reindexing" icon="arrows-rotate">
+    All operations that modify keys automatically reindex to maintain sequential 0-based keys. No manual `values()` calls needed.
+  </Card>
+  
+  <Card title="Laravel Collection API" icon="layer-group">
+    Extends Laravel's `Collection` class, so you get all the familiar methods like `map()`, `filter()`, `sort()`, and more.
+  </Card>
+  
+  <Card title="Type-Safe" icon="shield-check">
+    Full PHP 8.3+ type hints and generics support with PHPStan for robust, maintainable code.
+  </Card>
+  
+  <Card title="Predictable JSON" icon="brackets-curly">
+    Always serializes to JSON arrays, never objects. Perfect for APIs and frontend integration.
+  </Card>
+  
+  <Card title="Protection from Associative Operations" icon="lock">
+    Methods that would produce associative keys (like `flip()`, `groupBy()`, `keyBy()`) throw exceptions to prevent misuse.
+  </Card>
+  
+  <Card title="Zero Configuration" icon="bolt">
+    Works out of the box with Laravel 11+ and PHP 8.3+. No configuration files or migrations required.
+  </Card>
+</CardGroup>
+
+## When to Use Laravel List
+
+<Tip>
+**Use `ListCollection` when you need:**
+- Predictable sequential array keys
+- JSON arrays (not objects) for API responses
+- List-like behavior similar to Python lists or JavaScript arrays
+- Protection against accidental associative key operations
+</Tip>
+
+<Note>
+**Stick with standard `Collection` when you need:**
+- Associative arrays with custom keys
+- Key preservation across operations
+- Methods like `groupBy()`, `keyBy()`, or `flip()`
+</Note>
+
+## Real-World Example
+
+Imagine building an API endpoint that returns a filtered list of active users:
+
+```php
+use dhy\LaravelList\ListCollection;
+
+public function getActiveUsers()
+{
+    $users = User::all(); // Eloquent Collection
+    
+    // Convert to ListCollection for guaranteed list behavior
+    $activeUsers = new ListCollection($users)
+        ->filter(fn($user) => $user->active)
+        ->map(fn($user) => [
+            'id' => $user->id,
+            'name' => $user->name,
+            'email' => $user->email,
+        ])
+        ->sortBy('name');
+    
+    // Always returns JSON array with sequential keys
+    return response()->json($activeUsers);
+    // Output: [{"id":1,"name":"Alice",...},{"id":3,"name":"Bob",...}]
+}
+```
+
+## Get Started
+
+<CardGroup cols={3}>
+  <Card title="Installation" icon="download" href="/installation">
+    Install Laravel List via Composer and get up and running in seconds.
+  </Card>
+  
+  <Card title="Quickstart" icon="rocket" href="/quickstart">
+    Learn the basics with a hands-on example that demonstrates core functionality.
+  </Card>
+  
+  <Card title="Core Concepts" icon="book" href="/concepts/list-invariant">
+    Understand how Laravel List maintains sequential keys and which methods are supported.
+  </Card>
+</CardGroup>

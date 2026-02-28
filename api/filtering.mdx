@@ -1,0 +1,259 @@
+---
+title: Filtering
+description: Methods for filtering ListCollection elements with automatic reindexing
+---
+
+## Overview
+
+ListCollection provides various filtering methods. All filtering operations return a new ListCollection with sequential integer keys.
+
+## filter()
+
+Filter elements using a callback. Elements that return `true` are kept.
+
+### Signature
+
+```php
+public function filter(callable $callback = null): static
+```
+
+<ParamField path="callback" type="callable(TValue, int): bool" default="null">
+  Optional callback that receives value and key. Returns `true` to keep the element. If omitted, removes falsy values.
+</ParamField>
+
+### Examples
+
+#### Filter with callback
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$filtered = $list->filter(fn(int $v): bool => $v > 2);
+
+$filtered->all();
+// [0 => 3, 1 => 4, 2 => 5]
+```
+
+#### Filter without callback (removes falsy values)
+
+```php
+$list = new ListCollection([0, 1, '', 'hello', null, false, true]);
+$filtered = $list->filter();
+
+$filtered->all();
+// [0 => 1, 1 => 'hello', 2 => true]
+```
+
+## reject()
+
+Filter elements by rejecting those that match the callback.
+
+### Signature
+
+```php
+public function reject(callable $callback): static
+```
+
+<ParamField path="callback" type="callable(TValue, int): bool" required>
+  Callback that receives value and key. Returns `true` to reject (remove) the element.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$result = $list->reject(fn(int $v): bool => $v % 2 === 0);
+
+$result->all();
+// [0 => 1, 1 => 3, 2 => 5]
+```
+
+## where()
+
+Filter elements where a field matches a value.
+
+### Signature
+
+```php
+public function where($key, $operator = null, $value = null): static
+```
+
+<ParamField path="key" type="string" required>
+  The field name to check.
+</ParamField>
+
+<ParamField path="operator" type="string|mixed" default="null">
+  Comparison operator or value if no operator specified.
+</ParamField>
+
+<ParamField path="value" type="mixed" default="null">
+  The value to compare against.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([
+    ['active' => true, 'name' => 'A'],
+    ['active' => false, 'name' => 'B'],
+    ['active' => true, 'name' => 'C'],
+]);
+
+$result = $list->where('active', true);
+
+$result->all();
+// [
+//   0 => ['active' => true, 'name' => 'A'],
+//   1 => ['active' => true, 'name' => 'C']
+// ]
+```
+
+## whereIn()
+
+Filter elements where a field's value is in an array.
+
+### Signature
+
+```php
+public function whereIn($key, $values, $strict = false): static
+```
+
+<ParamField path="key" type="string" required>
+  The field name to check.
+</ParamField>
+
+<ParamField path="values" type="array" required>
+  Array of acceptable values.
+</ParamField>
+
+<ParamField path="strict" type="bool" default="false">
+  Use strict comparison.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+    ['id' => 3, 'name' => 'Charlie'],
+]);
+
+$result = $list->whereIn('id', [1, 3]);
+
+$result->all();
+// [
+//   0 => ['id' => 1, 'name' => 'Alice'],
+//   1 => ['id' => 3, 'name' => 'Charlie']
+// ]
+```
+
+## except()
+
+Return all elements except those at specified indices.
+
+### Signature
+
+```php
+public function except($keys): static
+```
+
+<ParamField path="keys" type="array|int" required>
+  Index or array of indices to exclude.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$result = $list->except([1, 3]);
+
+$result->all();
+// [0 => 'a', 1 => 'c']
+```
+
+## only()
+
+Return only the elements at specified indices.
+
+### Signature
+
+```php
+public function only($keys): static
+```
+
+<ParamField path="keys" type="array|int" required>
+  Index or array of indices to include.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$result = $list->only([0, 2]);
+
+$result->all();
+// [0 => 'a', 1 => 'c']
+```
+
+## unique()
+
+Return only unique elements.
+
+### Signature
+
+```php
+public function unique($key = null, $strict = false): static
+```
+
+<ParamField path="key" type="string|callable|null" default="null">
+  Field name or callback to determine uniqueness.
+</ParamField>
+
+<ParamField path="strict" type="bool" default="false">
+  Use strict comparison.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 2, 3, 3, 3]);
+$unique = $list->unique();
+
+$unique->all();
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+## Related Methods
+
+### diff()
+
+Return elements not present in the given array.
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$diff = $list->diff([2, 4]);
+
+$diff->all();
+// [0 => 1, 1 => 3, 2 => 5]
+```
+
+### intersect()
+
+Return elements present in both the collection and given array.
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$intersect = $list->intersect([2, 4, 6]);
+
+$intersect->all();
+// [0 => 2, 1 => 4]
+```
+
+## Key Points
+
+- All filtering methods return a new `ListCollection` with sequential keys
+- `filter()` keeps matching elements, `reject()` removes them
+- `where()` and `whereIn()` are useful for filtering arrays of objects/arrays
+- `except()` and `only()` work with indices
+- `unique()` removes duplicate values
+- Results are always reindexed to maintain list structure (0, 1, 2, ...)

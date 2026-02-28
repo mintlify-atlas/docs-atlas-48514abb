@@ -1,0 +1,302 @@
+---
+title: Static Factory Methods
+description: Static methods for creating ListCollection instances in various ways
+---
+
+## Overview
+
+ListCollection provides static factory methods as convenient alternatives to the constructor. All factory methods return `ListCollection` instances with sequential integer keys.
+
+## make()
+
+Create a new ListCollection instance from an array or iterable.
+
+### Signature
+
+```php
+public static function make($items = []): static
+```
+
+<ParamField path="items" type="mixed" default="[]">
+  The items to include in the collection. Can be an array, Collection, or iterable.
+</ParamField>
+
+**Returns:** `ListCollection` - New collection with sequential keys.
+
+### Examples
+
+#### Create from array
+
+```php
+$list = ListCollection::make([1, 2, 3]);
+
+$list->all();
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+#### Create from associative array
+
+```php
+$list = ListCollection::make(['z' => 3, 'a' => 1]);
+
+$list->all();
+// [0 => 3, 1 => 1]
+```
+
+#### Create empty collection
+
+```php
+$list = ListCollection::make();
+
+$list->isEmpty();
+// true
+
+$list->all();
+// []
+```
+
+### Usage Pattern
+
+The `make()` method provides a more fluent alternative to the constructor:
+
+```php
+// Using constructor
+$list = new ListCollection([1, 2, 3]);
+
+// Using make() - more fluent
+$list = ListCollection::make([1, 2, 3]);
+```
+
+## times()
+
+Create a collection by invoking a callback a given number of times.
+
+### Signature
+
+```php
+public static function times($number, callable $callback = null): static
+```
+
+<ParamField path="number" type="int" required>
+  The number of times to invoke the callback.
+</ParamField>
+
+<ParamField path="callback" type="callable(int): mixed" default="null">
+  Callback that receives the iteration number (1-indexed). If omitted, returns the iteration numbers.
+</ParamField>
+
+**Returns:** `ListCollection` - New collection with generated values.
+
+### Examples
+
+#### Generate with callback
+
+```php
+$list = ListCollection::times(3, fn(int $i): int => $i * 10);
+
+$list->all();
+// [0 => 10, 1 => 20, 2 => 30]
+```
+
+#### Generate sequence
+
+```php
+$list = ListCollection::times(5, fn(int $i): int => $i);
+
+$list->all();
+// [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+#### Generate objects
+
+```php
+$list = ListCollection::times(3, fn(int $i): array => [
+    'id' => $i,
+    'name' => "Item {$i}",
+]);
+
+$list->all();
+// [
+//   0 => ['id' => 1, 'name' => 'Item 1'],
+//   1 => ['id' => 2, 'name' => 'Item 2'],
+//   2 => ['id' => 3, 'name' => 'Item 3'],
+// ]
+```
+
+### Use Cases
+
+- **Generating test data**: Create mock objects for testing
+- **Pagination**: Generate page numbers
+- **Initialization**: Create default structures
+- **Iteration**: Repeat an operation n times
+
+## wrap()
+
+Wrap a value in a ListCollection. If already a collection, returns as-is.
+
+### Signature
+
+```php
+public static function wrap($value): static
+```
+
+<ParamField path="value" type="mixed" required>
+  The value to wrap. Can be a single value, array, or existing collection.
+</ParamField>
+
+**Returns:** `ListCollection` - Collection containing the value(s).
+
+### Examples
+
+#### Wrap single value
+
+```php
+$list = ListCollection::wrap('single');
+
+$list->all();
+// [0 => 'single']
+```
+
+#### Wrap array
+
+```php
+$list = ListCollection::wrap([1, 2, 3]);
+
+$list->all();
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+#### Wrap existing collection
+
+```php
+$existing = new ListCollection([1, 2, 3]);
+$wrapped = ListCollection::wrap($existing);
+
+$wrapped === $existing;
+// true (returns same instance)
+```
+
+#### Wrap null
+
+```php
+$list = ListCollection::wrap(null);
+
+$list->all();
+// []
+```
+
+### Use Cases
+
+- **Defensive programming**: Ensure you have a collection
+- **API flexibility**: Accept single values or arrays
+- **Type normalization**: Unified handling of various input types
+
+```php
+function processItems($items)
+{
+    $collection = ListCollection::wrap($items);
+    
+    return $collection->map(fn($item) => process($item));
+}
+
+// Works with single value
+processItems('one');
+
+// Works with array
+processItems(['one', 'two', 'three']);
+
+// Works with collection
+processItems(ListCollection::make(['one', 'two']));
+```
+
+## Comparison with Constructor
+
+### Constructor
+
+```php
+$list = new ListCollection([1, 2, 3]);
+```
+
+- Direct instantiation
+- Requires `new` keyword
+- Explicit type declaration
+
+### make()
+
+```php
+$list = ListCollection::make([1, 2, 3]);
+```
+
+- Static factory method
+- More fluent API
+- Identical behavior to constructor
+
+### times()
+
+```php
+$list = ListCollection::times(3, fn($i) => $i * 10);
+```
+
+- Generates values programmatically
+- Callback receives iteration number
+- Useful for creating sequences
+
+### wrap()
+
+```php
+$list = ListCollection::wrap($unknown);
+```
+
+- Safely wraps any value
+- Handles collections, arrays, and scalars
+- Returns existing collections as-is
+
+## Practical Examples
+
+### Generate ID sequence
+
+```php
+$ids = ListCollection::times(10, fn($i) => $i)
+    ->map(fn($id) => str_pad($id, 4, '0', STR_PAD_LEFT));
+
+$ids->all();
+// ['0001', '0002', '0003', ..., '0010']
+```
+
+### Create test users
+
+```php
+$users = ListCollection::times(5, fn($i) => [
+    'id' => $i,
+    'name' => "User {$i}",
+    'email' => "user{$i}@example.com",
+]);
+```
+
+### Flexible input handling
+
+```php
+function addTags($post, $tags)
+{
+    $tagCollection = ListCollection::wrap($tags);
+    
+    foreach ($tagCollection as $tag) {
+        $post->tags()->attach($tag);
+    }
+}
+
+// Works with single tag
+addTags($post, 'php');
+
+// Works with multiple tags
+addTags($post, ['php', 'laravel', 'collections']);
+```
+
+## Key Points
+
+- All factory methods return `ListCollection` with sequential keys (0, 1, 2, ...)
+- `make()` is a fluent alternative to the constructor
+- `times()` generates values programmatically using a callback
+- `wrap()` safely ensures you have a collection, regardless of input type
+- Factory methods are inherited from Laravel's `Collection` but return `ListCollection` instances
+- All methods respect the automatic reindexing behavior of `ListCollection`

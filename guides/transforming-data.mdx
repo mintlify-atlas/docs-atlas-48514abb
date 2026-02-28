@@ -1,0 +1,318 @@
+---
+title: Transforming Data
+description: Learn how to transform ListCollections using map, transform, flatMap, flatten, collapse, and pluck methods.
+---
+
+ListCollection provides powerful transformation methods that allow you to modify, flatten, and extract data while maintaining sequential numeric indices.
+
+## Mapping Operations
+
+### map()
+
+Transform each element and return a new ListCollection:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$mapped = $list->map(fn (int $v): int => $v * 2);
+
+// Result: [0 => 2, 1 => 4, 2 => 6]
+```
+
+The callback receives the value and index:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$mapped = $list->map(fn (string $v, int $i): string => "{$i}: {$v}");
+
+// Result: [0 => '0: a', 1 => '1: b', 2 => '2: c']
+```
+
+<Note>
+`map()` returns a new ListCollection instance, leaving the original unchanged.
+</Note>
+
+### transform()
+
+Transform elements in place, modifying the original list:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$list->transform(fn (int $v): int => $v * 10);
+
+// List is now: [0 => 10, 1 => 20, 2 => 30]
+```
+
+The difference from `map()` is that `transform()` mutates the original collection:
+
+```php
+// map() returns new instance
+$original = new ListCollection([1, 2, 3]);
+$mapped = $original->map(fn ($v) => $v * 2);
+// $original: [0 => 1, 1 => 2, 2 => 3]
+// $mapped: [0 => 2, 1 => 4, 2 => 6]
+
+// transform() modifies original
+$list = new ListCollection([1, 2, 3]);
+$list->transform(fn ($v) => $v * 2);
+// $list: [0 => 2, 1 => 4, 2 => 6]
+```
+
+## Flattening Operations
+
+### flatten()
+
+Flatten a multi-dimensional list into a single dimension:
+
+```php
+$list = new ListCollection([[1, 2], [3, 4], [5]]);
+$result = $list->flatten();
+
+// Result: [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+### collapse()
+
+Collapse a list of arrays into a single flat list:
+
+```php
+$list = new ListCollection([[1, 2], [3, 4], [5]]);
+$result = $list->collapse();
+
+// Result: [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+<Tip>
+Both `flatten()` and `collapse()` are similar for simple arrays. Use `flatten()` when you need to control the depth level.
+</Tip>
+
+### flatMap()
+
+Map each element to multiple values and flatten the result:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->flatMap(fn (int $v): array => [$v, $v * 10]);
+
+// Result: [0 => 1, 1 => 10, 2 => 2, 3 => 20, 4 => 3, 5 => 30]
+```
+
+This is useful for expanding each element into multiple elements:
+
+```php
+$list = new ListCollection(['hello', 'world']);
+$result = $list->flatMap(fn (string $v): array => str_split($v));
+
+// Result: [0 => 'h', 1 => 'e', 2 => 'l', 3 => 'l', 4 => 'o', 
+//          5 => 'w', 6 => 'o', 7 => 'r', 8 => 'l', 9 => 'd']
+```
+
+## Extracting Values
+
+### pluck()
+
+Extract values from a list of arrays or objects:
+
+```php
+$list = new ListCollection([
+    ['id' => 10, 'name' => 'Alice'],
+    ['id' => 20, 'name' => 'Bob'],
+]);
+
+$result = $list->pluck('name');
+
+// Result: [0 => 'Alice', 1 => 'Bob']
+```
+
+<Warning>
+ListCollection does not support `pluck()` with a second parameter (key) because it would create associative keys:
+
+```php
+$list->pluck('name', 'id'); // Throws BadMethodCallException
+```
+</Warning>
+
+You can pluck nested values using dot notation:
+
+```php
+$list = new ListCollection([
+    ['user' => ['name' => 'Alice', 'age' => 25]],
+    ['user' => ['name' => 'Bob', 'age' => 30]],
+]);
+
+$result = $list->pluck('user.name');
+
+// Result: [0 => 'Alice', 1 => 'Bob']
+```
+
+## Combining Lists
+
+### merge()
+
+Merge another array or collection into the list:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->merge([4, 5]);
+
+// Result: [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+### concat()
+
+Concatenate values onto the list:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->concat([4, 5]);
+
+// Result: [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+```
+
+### zip()
+
+Zip the list with one or more arrays:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$result = $list->zip(['a', 'b', 'c']);
+
+// Result: [
+//     0 => ListCollection([0 => 1, 1 => 'a']),
+//     1 => ListCollection([0 => 2, 1 => 'b']),
+//     2 => ListCollection([0 => 3, 1 => 'c'])
+// ]
+```
+
+## Restructuring
+
+### chunk()
+
+Break the list into smaller lists of a given size:
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$chunks = $list->chunk(2);
+
+// Result: [
+//     0 => ListCollection([0 => 1, 1 => 2]),
+//     1 => ListCollection([0 => 3, 1 => 4]),
+//     2 => ListCollection([0 => 5])
+// ]
+```
+
+Each chunk is a ListCollection with sequential keys.
+
+### reverse()
+
+Reverse the order of elements:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$reversed = $list->reverse();
+
+// Result: [0 => 3, 1 => 2, 2 => 1]
+```
+
+### shuffle()
+
+Randomly shuffle the list:
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$shuffled = $list->shuffle();
+
+// Result: Random order, but always [0, 1, 2, 3, 4] as keys
+```
+
+### nth()
+
+Get every nth element:
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e', 'f']);
+$result = $list->nth(2);
+
+// Result: [0 => 'a', 1 => 'c', 2 => 'e']
+```
+
+## Padding and Replacing
+
+### pad()
+
+Pad the list to a specified length with a value:
+
+```php
+$list = new ListCollection([1, 2]);
+$result = $list->pad(5, 0);
+
+// Result: [0 => 1, 1 => 2, 2 => 0, 3 => 0, 4 => 0]
+```
+
+### replace()
+
+Replace elements at specific indices:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$result = $list->replace([1 => 'B']);
+
+// Result: [0 => 'a', 1 => 'B', 2 => 'c']
+```
+
+### splice()
+
+Remove and/or replace a portion of the list:
+
+```php
+// Remove elements
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e']);
+$spliced = $list->splice(1, 2);
+
+// $spliced: [0 => 'b', 1 => 'c']
+// $list: [0 => 'a', 1 => 'd', 2 => 'e']
+```
+
+With replacement:
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$spliced = $list->splice(1, 1, ['X', 'Y']);
+
+// $spliced: [0 => 'b']
+// $list: [0 => 'a', 1 => 'X', 2 => 'Y', 3 => 'c', 4 => 'd']
+```
+
+## Blocked Transformation Methods
+
+Some Collection methods are not available on ListCollection because they produce associative keys:
+
+<CodeGroup>
+```php mapWithKeys()
+// Throws BadMethodCallException
+$list->mapWithKeys(fn ($item) => [$item['key'] => $item['value']]);
+```
+
+```php groupBy()
+// Throws BadMethodCallException
+$list->groupBy('type');
+```
+
+```php keyBy()
+// Throws BadMethodCallException
+$list->keyBy('id');
+```
+
+```php countBy()
+// Throws BadMethodCallException
+$list->countBy();
+```
+</CodeGroup>
+
+<Tip>
+All transformation methods return ListCollection instances with sequential numeric keys, ensuring type safety and predictable behavior.
+</Tip>
+
+## Related Methods
+
+- [Filtering & Sorting](/guides/filtering-sorting) - Filter before transforming
+- [Chaining Operations](/guides/chaining-operations) - Combine transformations

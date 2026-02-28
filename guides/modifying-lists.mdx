@@ -1,0 +1,221 @@
+---
+title: Modifying Lists
+description: Learn how to add and remove elements from ListCollections using push, prepend, forget, pull, pop, shift, and array access methods.
+---
+
+ListCollection provides several methods to modify list contents. All modification methods maintain sequential numeric indices.
+
+## Adding Elements
+
+### push()
+
+Add one or more elements to the end of the list:
+
+```php
+$list = new ListCollection(['a']);
+$list->push('b', 'c');
+
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+### prepend()
+
+Add an element to the beginning of the list:
+
+```php
+$list = new ListCollection(['b', 'c']);
+$list->prepend('a');
+
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+Note that the second parameter (key) is ignored for ListCollections:
+
+```php
+$list = new ListCollection(['b', 'c']);
+$list->prepend('a', 'some-key'); // Key is ignored
+
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+### add()
+
+Append a single element to the list:
+
+```php
+$list = new ListCollection(['a', 'b']);
+$list->add('c');
+
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+### Array Access (offsetSet)
+
+You can use array syntax to add or modify elements:
+
+```php
+$list = new ListCollection(['a', 'b']);
+
+// Append with null key or []
+$list[] = 'c';
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+
+// Replace at valid index
+$list[1] = 'B';
+// Result: [0 => 'a', 1 => 'B', 2 => 'c']
+
+// Append at index equal to count
+$list = new ListCollection(['a', 'b']);
+$list[2] = 'c';
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+<Note>
+Invalid keys (strings, negative numbers, or out-of-range integers) will append the value instead of throwing an error.
+</Note>
+
+```php
+$list = new ListCollection(['a', 'b']);
+
+// String keys append the value
+$list['foo'] = 'c';
+// Result: [0 => 'a', 1 => 'b', 2 => 'c']
+
+// Out-of-range integers append
+$list[99] = 'd';
+// Result: [0 => 'a', 1 => 'b', 2 => 'c', 3 => 'd']
+
+// Negative integers append
+$list[-1] = 'e';
+// Result: [0 => 'a', 1 => 'b', 2 => 'c', 3 => 'd', 4 => 'e']
+```
+
+## Removing Elements
+
+### forget()
+
+Remove one or more elements by index and re-index the list:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$list->forget(1);
+
+// Result: [0 => 'a', 1 => 'c']
+```
+
+You can remove multiple elements:
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$list->forget([0, 2]);
+
+// Result: [0 => 'b', 1 => 'd']
+```
+
+<Warning>
+When chaining `forget()` calls, remember that indices are re-indexed after each call.
+</Warning>
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$list->forget(1); // removes 'b' → [0 => 'a', 1 => 'c', 2 => 'd']
+$list->forget(1); // removes 'c' at new index 1
+
+// Result: [0 => 'a', 1 => 'd']
+```
+
+### pull()
+
+Remove and return an element by index:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$value = $list->pull(1);
+
+// $value: 'b'
+// List: [0 => 'a', 1 => 'c']
+```
+
+Provide a default value for missing indices:
+
+```php
+$list = new ListCollection(['a']);
+$value = $list->pull(99, 'default');
+
+// $value: 'default'
+// List: [0 => 'a'] (unchanged)
+```
+
+You can also use a closure as the default:
+
+```php
+$list = new ListCollection(['a']);
+$value = $list->pull(99, fn () => 'closure-default');
+
+// $value: 'closure-default'
+// List: [0 => 'a'] (unchanged)
+```
+
+### pop()
+
+Remove and return the last element:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$value = $list->pop();
+
+// $value: 'c'
+// List: [0 => 'a', 1 => 'b']
+```
+
+Remove multiple elements from the end:
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$popped = $list->pop(2);
+
+// $popped: ListCollection [0 => 'd', 1 => 'c']
+// List: [0 => 'a', 1 => 'b']
+```
+
+### shift()
+
+Remove and return the first element:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$value = $list->shift();
+
+// $value: 'a'
+// List: [0 => 'b', 1 => 'c']
+```
+
+Remove multiple elements from the beginning:
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$shifted = $list->shift(2);
+
+// $shifted: ListCollection [0 => 'a', 1 => 'b']
+// List: [0 => 'c', 1 => 'd']
+```
+
+### Array Access (offsetUnset)
+
+Remove elements using `unset()`:
+
+```php
+$list = new ListCollection(['x', 'y', 'z']);
+unset($list[0]);
+
+// Result: [0 => 'y', 1 => 'z']
+```
+
+<Tip>
+All removal methods automatically re-index the list to maintain sequential numeric keys starting from 0.
+</Tip>
+
+## Related Methods
+
+- [Creating Lists](/guides/creating-lists) - Initialize new lists
+- [Filtering & Sorting](/guides/filtering-sorting) - Filter and sort elements

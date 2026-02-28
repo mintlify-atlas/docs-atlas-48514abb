@@ -1,0 +1,405 @@
+---
+title: Blocked Methods
+description: Understanding which Collection methods are not available in ListCollection and why
+---
+
+## Why Block Methods?
+
+`ListCollection` extends Laravel's `Collection` but blocks certain methods that would violate the [list invariant](/concepts/list-invariant) by producing associative keys. These methods throw `BadMethodCallException` when called.
+
+Blocking incompatible methods provides:
+
+1. **Clear errors at runtime** - You get an immediate exception with explanation
+2. **Type safety** - Prevents silent bugs where code expects list semantics but gets associative data
+3. **Explicit design** - Makes it clear that `ListCollection` is for ordered sequences, not key-value mappings
+
+## Blocked Methods Reference
+
+### `flip()`
+
+Swaps keys and values, creating non-sequential keys.
+
+```php
+$list = new ListCollection([1, 2, 3]);
+
+// ❌ Throws BadMethodCallException
+$list->flip();
+// Would produce: [1 => 0, 2 => 1, 3 => 2]
+```
+
+<Info>
+See ListCollection.php:105-108 and ListCollectionTest.php:693-697 for the implementation and test.
+</Info>
+
+**Why blocked:** Values become keys, and values are arbitrary (not guaranteed to be sequential integers starting at 0).
+
+**Alternative:** There's no direct alternative because flipping fundamentally changes the data structure. If you need to flip, use a regular `Collection`:
+
+```php
+$collection = collect([1, 2, 3])->flip();
+// Collection {1 => 0, 2 => 1, 3 => 2}
+```
+
+### `combine($values)`
+
+Combines two arrays by using one as keys and another as values.
+
+```php
+$list = new ListCollection(['name', 'age']);
+
+// ❌ Throws BadMethodCallException
+$list->combine(['John', 30]);
+// Would produce: ['name' => 'John', 'age' => 30]
+```
+
+<Info>
+See ListCollection.php:111-114 and ListCollectionTest.php:699-703 for the implementation and test.
+</Info>
+
+**Why blocked:** Explicitly creates associative keys from the list's values.
+
+**Alternative:** Use regular `Collection`:
+
+```php
+$keys = ['name', 'age'];
+$values = ['John', 30];
+$result = collect($keys)->combine($values);
+// Collection {"name" => "John", "age" => 30}
+```
+
+### `groupBy($groupBy, $preserveKeys = false)`
+
+Groups items by a field or callback result.
+
+```php
+$list = new ListCollection([
+    ['type' => 'fruit', 'name' => 'apple'],
+    ['type' => 'vegetable', 'name' => 'carrot'],
+    ['type' => 'fruit', 'name' => 'banana'],
+]);
+
+// ❌ Throws BadMethodCallException
+$list->groupBy('type');
+// Would produce:
+// [
+//     'fruit' => [...],
+//     'vegetable' => [...],
+// ]
+```
+
+<Info>
+See ListCollection.php:117-120 and ListCollectionTest.php:705-712 for the implementation and test.
+</Info>
+
+**Why blocked:** Creates associative keys based on the grouping field/result.
+
+**Alternative:** Convert to `Collection` first, or group then convert results to lists:
+
+```php
+// Option 1: Convert to Collection
+$grouped = collect($list)->groupBy('type');
+// Collection {
+//     "fruit" => Collection [...],
+//     "vegetable" => Collection [...],
+// }
+
+// Option 2: Group then extract values as lists
+$grouped = collect($list)->groupBy('type');
+$fruitList = new ListCollection($grouped['fruit']);
+$vegetableList = new ListCollection($grouped['vegetable']);
+```
+
+### `keyBy($keyBy)`
+
+Re-keys the collection by a field or callback result.
+
+```php
+$list = new ListCollection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+]);
+
+// ❌ Throws BadMethodCallException
+$list->keyBy('id');
+// Would produce:
+// [
+//     1 => ['id' => 1, 'name' => 'Alice'],
+//     2 => ['id' => 2, 'name' => 'Bob'],
+// ]
+```
+
+<Info>
+See ListCollection.php:123-126 and ListCollectionTest.php:714-721 for the implementation and test.
+</Info>
+
+**Why blocked:** Replaces sequential keys with custom keys derived from the data.
+
+**Alternative:** Use regular `Collection`:
+
+```php
+$indexed = collect($list)->keyBy('id');
+// Collection {
+//     1 => ["id" => 1, "name" => "Alice"],
+//     2 => ["id" => 2, "name" => "Bob"],
+// }
+
+// Access by ID
+echo $indexed[1]['name']; // "Alice"
+```
+
+### `countBy($countBy = null)`
+
+Counts occurrences of values.
+
+```php
+$list = new ListCollection(['a', 'b', 'a', 'c', 'b', 'a']);
+
+// ❌ Throws BadMethodCallException
+$list->countBy();
+// Would produce:
+// ['a' => 3, 'b' => 2, 'c' => 1]
+```
+
+<Info>
+See ListCollection.php:129-132 and ListCollectionTest.php:723-727 for the implementation and test.
+</Info>
+
+**Why blocked:** Creates associative keys based on the counted values.
+
+**Alternative:** Use regular `Collection` or manually count:
+
+```php
+// Option 1: Convert to Collection
+$counts = collect($list)->countBy();
+// Collection {"a" => 3, "b" => 2, "c" => 1}
+
+// Option 2: Manual counting with array
+$counts = array_count_values($list->all());
+// ['a' => 3, 'b' => 2, 'c' => 1]
+```
+
+### `mapWithKeys(callable $callback)`
+
+Maps items to key-value pairs.
+
+```php
+$list = new ListCollection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+]);
+
+// ❌ Throws BadMethodCallException
+$list->mapWithKeys(fn($item) => [$item['id'] => $item['name']]);
+// Would produce:
+// [1 => 'Alice', 2 => 'Bob']
+```
+
+<Info>
+See ListCollection.php:135-138 and ListCollectionTest.php:729-735 for the implementation and test.
+</Info>
+
+**Why blocked:** Explicitly designed to create custom keys from the mapping callback.
+
+**Alternative:** Use regular `Collection` or `map()` without custom keys:
+
+```php
+// Option 1: Convert to Collection
+$mapped = collect($list)->mapWithKeys(fn($item) => [$item['id'] => $item['name']]);
+// Collection {1 => "Alice", 2 => "Bob"}
+
+// Option 2: Use map() to transform values only
+$names = $list->map(fn($item) => $item['name']);
+// ListCollection {0 => "Alice", 1 => "Bob"}
+```
+
+### `mapToDictionary(callable $callback)`
+
+Maps items into a grouped associative array.
+
+```php
+$list = new ListCollection([
+    ['type' => 'fruit', 'name' => 'apple'],
+    ['type' => 'fruit', 'name' => 'banana'],
+    ['type' => 'vegetable', 'name' => 'carrot'],
+]);
+
+// ❌ Throws BadMethodCallException
+$list->mapToDictionary(fn($item) => [$item['type'] => $item['name']]);
+// Would produce:
+// [
+//     'fruit' => ['apple', 'banana'],
+//     'vegetable' => ['carrot'],
+// ]
+```
+
+<Info>
+See ListCollection.php:141-144 and ListCollectionTest.php:737-743 for the implementation and test.
+</Info>
+
+**Why blocked:** Creates an associative structure with custom keys.
+
+**Alternative:** Use regular `Collection`:
+
+```php
+$dictionary = collect($list)->mapToDictionary(fn($item) => [$item['type'] => $item['name']]);
+// Collection {
+//     "fruit" => Collection ["apple", "banana"],
+//     "vegetable" => Collection ["carrot"],
+// }
+```
+
+### `mapToGroups(callable $callback)`
+
+Similar to `mapToDictionary`, groups items by callback result.
+
+```php
+$list = new ListCollection([
+    ['type' => 'a', 'value' => 1],
+    ['type' => 'b', 'value' => 2],
+]);
+
+// ❌ Throws BadMethodCallException
+$list->mapToGroups(fn($item) => [$item['type'] => $item['value']]);
+// Would produce associative keys
+```
+
+<Info>
+See ListCollection.php:147-150 and ListCollectionTest.php:745-751 for the implementation and test.
+</Info>
+
+**Why blocked:** Creates associative keys based on grouping.
+
+**Alternative:** Use regular `Collection`:
+
+```php
+$groups = collect($list)->mapToGroups(fn($item) => [$item['type'] => $item['value']]);
+```
+
+### `pluck($value, $key = null)` (with key argument)
+
+Extracts a column from items. Blocked **only when the second argument is provided**.
+
+```php
+$list = new ListCollection([
+    ['id' => 10, 'name' => 'Alice'],
+    ['id' => 20, 'name' => 'Bob'],
+]);
+
+// ✅ Works fine - returns ListCollection
+$names = $list->pluck('name');
+var_dump($names->all());
+// [0 => 'Alice', 1 => 'Bob']
+
+// ❌ Throws BadMethodCallException when key argument provided
+$list->pluck('name', 'id');
+// Would produce: [10 => 'Alice', 20 => 'Bob']
+```
+
+<Info>
+See ListCollection.php:153-161 for the implementation, ListCollectionTest.php:753-760 for blocked behavior, and ListCollectionTest.php:822-831 for allowed behavior.
+</Info>
+
+**Why partially blocked:** Without the key argument, `pluck()` maintains sequential keys. With the key argument, it creates associative keys from the data.
+
+**Alternative:** Use without the key argument, or convert to `Collection`:
+
+```php
+// Option 1: Pluck without key (returns ListCollection)
+$names = $list->pluck('name');
+// ListCollection {0 => "Alice", 1 => "Bob"}
+
+// Option 2: Convert to Collection first
+$indexed = collect($list)->pluck('name', 'id');
+// Collection {10 => "Alice", 20 => "Bob"}
+```
+
+## Summary Table
+
+| Method | Why Blocked | Alternative |
+|--------|-------------|-------------|
+| `flip()` | Values become keys | Use `Collection::flip()` |
+| `combine()` | Creates associative keys | Use `Collection::combine()` |
+| `groupBy()` | Groups by associative keys | Use `Collection::groupBy()` then extract groups |
+| `keyBy()` | Re-keys with custom keys | Use `Collection::keyBy()` |
+| `countBy()` | Counts create associative keys | Use `Collection::countBy()` or `array_count_values()` |
+| `mapWithKeys()` | Explicitly maps to key-value pairs | Use `Collection::mapWithKeys()` or `map()` |
+| `mapToDictionary()` | Creates associative grouped structure | Use `Collection::mapToDictionary()` |
+| `mapToGroups()` | Groups by associative keys | Use `Collection::mapToGroups()` |
+| `pluck($value, $key)` | Second param creates associative keys | Use `pluck($value)` or `Collection::pluck()` |
+
+## Error Message Format
+
+When you call a blocked method, you'll see:
+
+```php
+try {
+    $list->flip();
+} catch (BadMethodCallException $e) {
+    echo $e->getMessage();
+    // "flip() is not supported on ListCollection because it produces associative keys."
+}
+```
+
+All blocked methods provide clear error messages explaining why they're not supported.
+
+<Info>
+See ListCollection.php:105-161 for all error messages.
+</Info>
+
+## Working With Associative Data
+
+If you need to use these methods, you have two options:
+
+### Option 1: Use Regular Collection
+
+```php
+// Start with regular Collection
+$collection = collect([
+    ['id' => 1, 'name' => 'Alice', 'role' => 'admin'],
+    ['id' => 2, 'name' => 'Bob', 'role' => 'user'],
+    ['id' => 3, 'name' => 'Charlie', 'role' => 'admin'],
+]);
+
+// Use associative methods freely
+$byRole = $collection->groupBy('role');
+$byId = $collection->keyBy('id');
+```
+
+### Option 2: Convert Between Types
+
+```php
+// Start with ListCollection for ordered operations
+$list = new ListCollection([
+    ['id' => 1, 'name' => 'Alice', 'role' => 'admin'],
+    ['id' => 2, 'name' => 'Bob', 'role' => 'user'],
+    ['id' => 3, 'name' => 'Charlie', 'role' => 'admin'],
+]);
+
+// Do list operations
+$filtered = $list->filter(fn($user) => $user['role'] === 'admin');
+
+// Convert to Collection for associative operations
+$byId = collect($filtered)->keyBy('id');
+
+// Convert back to ListCollection if needed
+$backToList = new ListCollection($byId);
+// [0 => ['id' => 1, ...], 1 => ['id' => 3, ...]]
+```
+
+<Warning>
+Conversion from `Collection` to `ListCollection` discards keys! Only do this if you don't need to preserve the keys.
+</Warning>
+
+## Design Philosophy
+
+`ListCollection` follows the "fail fast" principle:
+
+- **Better to throw an exception** than silently produce wrong results
+- **Explicit is better than implicit** - if you need associative keys, use `Collection`
+- **Type guarantees** - `ListCollection<int, T>` truly means integer keys only
+
+By blocking these methods, `ListCollection` provides a stronger contract about the shape of your data, making code more predictable and easier to reason about.
+
+<Info>
+For more background on why sequential keys matter, see the [List Invariant](/concepts/list-invariant) guide.
+</Info>

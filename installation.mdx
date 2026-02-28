@@ -1,0 +1,146 @@
+---
+title: Installation
+description: Install Laravel List via Composer and configure it for your Laravel application.
+---
+
+## Requirements
+
+Before installing Laravel List, ensure your environment meets these requirements:
+
+<CardGroup cols={2}>
+  <Card title="PHP Version" icon="php">
+    **PHP 8.3 or higher** is required for type hints and modern language features.
+  </Card>
+  
+  <Card title="Laravel Version" icon="laravel">
+    **Laravel 11.x or 12.x** is supported. Works with both versions seamlessly.
+  </Card>
+</CardGroup>
+
+## Installation via Composer
+
+<Steps>
+  <Step title="Install the package">
+    Run the following command in your Laravel project root:
+    
+    ```bash
+    composer require derheyne/laravel-list
+    ```
+    
+    This will install the package and its dependencies.
+  </Step>
+  
+  <Step title="Verify installation">
+    Check that the package is installed correctly:
+    
+    ```bash
+    composer show derheyne/laravel-list
+    ```
+    
+    You should see the package details and version information.
+  </Step>
+  
+  <Step title="Start using ListCollection">
+    Import and use the `ListCollection` class in your code:
+    
+    ```php
+    use dhy\LaravelList\ListCollection;
+    
+    $list = new ListCollection([1, 2, 3]);
+    ```
+    
+    No additional configuration is needed!
+  </Step>
+</Steps>
+
+## That's It!
+
+Unlike many Laravel packages, Laravel List requires **no configuration**, **no migrations**, and **no service provider registration**. It works out of the box.
+
+<Note>
+Laravel List is a simple, focused package that provides a single class: `ListCollection`. There are no config files to publish, no migrations to run, and no views to customize.
+</Note>
+
+## What Gets Installed
+
+When you install Laravel List, you get:
+
+- **ListCollection class**: The main collection wrapper in the `dhy\LaravelList` namespace
+- **Full type support**: Complete PHPStan type annotations for IDE autocompletion
+- **Laravel integration**: Seamless integration with Laravel's collection ecosystem
+
+## Dependencies
+
+Laravel List has minimal dependencies:
+
+```json
+{
+  "php": "^8.3",
+  "illuminate/contracts": "^11.0||^12.0",
+  "illuminate/collections": "^11.0||^12.0"
+}
+```
+
+These are typically already installed in your Laravel application.
+
+## Upgrading
+
+To upgrade to the latest version of Laravel List:
+
+```bash
+composer update derheyne/laravel-list
+```
+
+<Tip>
+Check the [changelog](https://github.com/dhy/laravel-list/blob/main/CHANGELOG.md) for information about new features and breaking changes between versions.
+</Tip>
+
+## Compatibility Matrix
+
+| Laravel List | PHP Version | Laravel Version |
+|-------------|-------------|------------------|
+| 1.x         | 8.3+        | 11.x, 12.x       |
+
+## Troubleshooting
+
+<AccordionGroup>
+  <Accordion title="PHP version too low">
+    If you see an error about PHP version requirements:
+    
+    ```
+    Your PHP version (8.2.x) does not satisfy that requirement.
+    ```
+    
+    **Solution**: Upgrade to PHP 8.3 or higher. Laravel List uses modern PHP features like typed properties and union types that require PHP 8.3+.
+  </Accordion>
+  
+  <Accordion title="Laravel version incompatible">
+    If you see dependency conflicts with Laravel:
+    
+    ```
+    Your requirements could not be resolved to an installable set of packages.
+    ```
+    
+    **Solution**: Ensure you're using Laravel 11.x or 12.x. Earlier versions are not supported.
+  </Accordion>
+  
+  <Accordion title="Composer memory limit">
+    If Composer runs out of memory during installation:
+    
+    ```
+    PHP Fatal error: Allowed memory size exhausted
+    ```
+    
+    **Solution**: Increase PHP's memory limit temporarily:
+    
+    ```bash
+    php -d memory_limit=-1 $(which composer) require derheyne/laravel-list
+    ```
+  </Accordion>
+</AccordionGroup>
+
+## Next Steps
+
+<Card title="Quickstart Guide" icon="rocket" href="/quickstart">
+  Now that you've installed Laravel List, follow the quickstart guide to learn the basics and create your first ListCollection.
+</Card>

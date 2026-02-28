@@ -1,0 +1,188 @@
+---
+title: Adding Elements
+description: Methods for adding elements to a ListCollection while maintaining sequential keys
+---
+
+## Overview
+
+ListCollection provides several methods for adding elements. All methods ensure that sequential integer keys are maintained.
+
+## push()
+
+Add one or more elements to the end of the collection.
+
+### Signature
+
+```php
+public function push(...$values): static
+```
+
+<ParamField path="values" type="TValue">
+  One or more values to append to the collection.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['a']);
+$list->push('b', 'c');
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+## prepend()
+
+Add an element to the beginning of the collection. The second parameter (key) is ignored to maintain list structure.
+
+### Signature
+
+```php
+public function prepend($value, $key = null): static
+```
+
+<ParamField path="value" type="TValue" required>
+  The value to prepend to the collection.
+</ParamField>
+
+<ParamField path="key" type="mixed" default="null">
+  Ignored parameter (for compatibility with parent class).
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['b', 'c']);
+$list->prepend('a');
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+The key parameter is ignored:
+
+```php
+$list = new ListCollection(['b', 'c']);
+$list->prepend('a', 'some-key');
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+## offsetSet()
+
+Set a value at a specific index using array access syntax. This method intelligently handles different key types.
+
+### Signature
+
+```php
+public function offsetSet($key, $value): void
+```
+
+<ParamField path="key" type="int|null">
+  The index to set. Use `null` or omit to append.
+</ParamField>
+
+<ParamField path="value" type="TValue" required>
+  The value to set.
+</ParamField>
+
+### Behavior
+
+- **`null` key**: Appends to the end
+- **Valid integer (0 ≤ key ≤ count)**: Replaces value at that index
+- **Invalid key (negative, out of range, or string)**: Appends to the end
+
+### Examples
+
+#### Append with null key
+
+```php
+$list = new ListCollection(['a', 'b']);
+$list[] = 'c';
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+#### Replace at valid index
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$list[1] = 'B';
+
+$list->all();
+// [0 => 'a', 1 => 'B', 2 => 'c']
+```
+
+#### Append when index equals count
+
+```php
+$list = new ListCollection(['a', 'b']);
+$list[2] = 'c';
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+#### Append with string key
+
+```php
+$list = new ListCollection(['a', 'b']);
+$list['foo'] = 'c';
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+#### Append with out-of-range integer
+
+```php
+$list = new ListCollection(['a', 'b']);
+$list[99] = 'c';
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+#### Append with negative integer
+
+```php
+$list = new ListCollection(['a', 'b']);
+$list[-1] = 'c';
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+## add()
+
+Append a value to the collection and maintain sequential keys.
+
+### Signature
+
+```php
+public function add($value): static
+```
+
+<ParamField path="value" type="TValue" required>
+  The value to append.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['a', 'b']);
+$list->add('c');
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+## Key Points
+
+- All adding methods preserve sequential integer keys (0, 1, 2, ...)
+- `push()` and `add()` append to the end
+- `prepend()` adds to the beginning
+- `offsetSet()` intelligently handles various key types, defaulting to append for invalid keys
+- Invalid or associative keys are ignored—values are always added with sequential indices

@@ -1,0 +1,249 @@
+---
+title: Removing Elements
+description: Methods for removing elements from a ListCollection with automatic reindexing
+---
+
+## Overview
+
+ListCollection provides methods to remove elements. All removal methods automatically reindex the remaining elements to maintain sequential integer keys.
+
+## forget()
+
+Remove one or more elements by their indices and reindex the collection.
+
+### Signature
+
+```php
+public function forget($keys): static
+```
+
+<ParamField path="keys" type="array<array-key, int>|int" required>
+  A single index or array of indices to remove.
+</ParamField>
+
+### Examples
+
+#### Remove single element
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$list->forget(1);
+
+$list->all();
+// [0 => 'a', 1 => 'c']
+```
+
+#### Remove multiple elements
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$list->forget([0, 2]);
+
+$list->all();
+// [0 => 'b', 1 => 'd']
+```
+
+#### Chained forget calls use reindexed keys
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$list->forget(1); // removes 'b' → [0 => 'a', 1 => 'c', 2 => 'd']
+$list->forget(1); // removes 'c' at new index 1
+
+$list->all();
+// [0 => 'a', 1 => 'd']
+```
+
+#### Out-of-bounds key is ignored
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$list->forget(99);
+
+$list->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+## pull()
+
+Remove and return an element by its index, reindexing the collection.
+
+### Signature
+
+```php
+public function pull($key, $default = null)
+```
+
+<ParamField path="key" type="int" required>
+  The index of the element to remove.
+</ParamField>
+
+<ParamField path="default" type="TPullDefault|(Closure(): TPullDefault)" default="null">
+  Value to return if the key doesn't exist. Can be a value or a closure.
+</ParamField>
+
+**Returns:** `TValue|TPullDefault` - The removed value or default if key not found.
+
+### Examples
+
+#### Pull existing element
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$pulled = $list->pull(1);
+
+$pulled;
+// 'b'
+
+$list->all();
+// [0 => 'a', 1 => 'c']
+```
+
+#### Pull with default value
+
+```php
+$list = new ListCollection(['a']);
+$pulled = $list->pull(99, 'default');
+
+$pulled;
+// 'default'
+
+$list->all();
+// [0 => 'a']
+```
+
+#### Pull with closure default
+
+```php
+$list = new ListCollection(['a']);
+$pulled = $list->pull(99, fn() => 'closure-default');
+
+$pulled;
+// 'closure-default'
+```
+
+## offsetUnset()
+
+Remove an element using array unset syntax and reindex.
+
+### Signature
+
+```php
+public function offsetUnset($key): void
+```
+
+<ParamField path="key" type="int" required>
+  The index of the element to remove.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['x', 'y', 'z']);
+unset($list[0]);
+
+$list->all();
+// [0 => 'y', 1 => 'z']
+```
+
+## pop()
+
+Remove and return the last element(s) from the collection.
+
+### Signature
+
+```php
+public function pop($count = 1)
+```
+
+<ParamField path="count" type="int" default="1">
+  Number of elements to remove from the end.
+</ParamField>
+
+**Returns:** 
+- `TValue` when `$count = 1` (single value)
+- `ListCollection<TValue>` when `$count > 1` (collection of values)
+
+### Examples
+
+#### Pop single element
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$popped = $list->pop();
+
+$popped;
+// 'c'
+
+$list->all();
+// [0 => 'a', 1 => 'b']
+```
+
+#### Pop multiple elements
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$popped = $list->pop(2);
+
+$popped->all();
+// [0 => 'd', 1 => 'c']
+
+$list->all();
+// [0 => 'a', 1 => 'b']
+```
+
+## shift()
+
+Remove and return the first element(s) from the collection.
+
+### Signature
+
+```php
+public function shift($count = 1)
+```
+
+<ParamField path="count" type="int" default="1">
+  Number of elements to remove from the beginning.
+</ParamField>
+
+**Returns:**
+- `TValue` when `$count = 1` (single value)
+- `ListCollection<TValue>` when `$count > 1` (collection of values)
+
+### Examples
+
+#### Shift single element
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$shifted = $list->shift();
+
+$shifted;
+// 'a'
+
+$list->all();
+// [0 => 'b', 1 => 'c']
+```
+
+#### Shift multiple elements
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$shifted = $list->shift(2);
+
+$shifted->all();
+// [0 => 'a', 1 => 'b']
+
+$list->all();
+// [0 => 'c', 1 => 'd']
+```
+
+## Key Points
+
+- All removal methods automatically reindex remaining elements to maintain sequential keys
+- `forget()` removes by index without returning the value
+- `pull()` removes and returns the value (with optional default)
+- `offsetUnset()` works with native PHP `unset()` syntax
+- `pop()` removes from the end, `shift()` removes from the beginning
+- Both `pop()` and `shift()` can remove multiple elements when count > 1
+- Chained removal operations use the reindexed keys after each removal

@@ -1,80 +1,284 @@
 ---
-title: "Quickstart"
-description: "Start building awesome documentation in minutes"
+title: Quickstart
+description: Get started with Laravel List in minutes. Learn how to create a ListCollection and leverage automatic key reindexing.
 ---
 
-## Get started in three steps
+## Your First ListCollection
 
-Get your documentation site running locally and make your first customization.
+Let's create a simple `ListCollection` and explore its core behavior.
 
-### Step 1: Set up your local environment
-
-<AccordionGroup>
-  <Accordion icon="copy" title="Clone your docs locally">
-    During the onboarding process, you created a GitHub repository with your docs content if you didn't already have one. You can find a link to this repository in your [dashboard](https://dashboard.mintlify.com).
+<Steps>
+  <Step title="Import the class">
+    First, import the `ListCollection` class in your PHP file:
     
-    To clone the repository locally so that you can make and preview changes to your docs, follow the [Cloning a repository](https://docs.github.com/en/repositories/creating-and-managing-repositories/cloning-a-repository) guide in the GitHub docs.
-  </Accordion>
-  <Accordion icon="rectangle-terminal" title="Start the preview server">
-    1. Install the Mintlify CLI: `npm i -g mint`
-    2. Navigate to your docs directory and run: `mint dev`
-    3. Open `http://localhost:3000` to see your docs live!
+    ```php
+    use dhy\LaravelList\ListCollection;
+    ```
+  </Step>
+  
+  <Step title="Create a ListCollection">
+    Create a new `ListCollection` with some data:
     
-    <Tip>Your preview updates automatically as you edit files.</Tip>
-  </Accordion>
-</AccordionGroup>
-
-### Step 2: Deploy your changes
-
-<AccordionGroup>
-  <Accordion icon="github" title="Install our GitHub app">
-    Install the Mintlify GitHub app from your [dashboard](https://dashboard.mintlify.com/settings/organization/github-app).
+    ```php
+    $list = new ListCollection([1, 2, 3, 4, 5]);
     
-    Our GitHub app automatically deploys your changes to your docs site, so you don't need to manage deployments yourself.
-</Accordion>
-<Accordion icon="palette" title="Update your site name and colors">
-    For a first change, let's update the name and colors of your docs site.
+    // Check the contents
+    $list->all(); // [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+    ```
+    
+    Notice the keys are sequential: 0, 1, 2, 3, 4.
+  </Step>
+  
+  <Step title="Perform operations">
+    Now let's filter the list to keep only values greater than 2:
+    
+    ```php
+    $filtered = $list->filter(fn($value) => $value > 2);
+    
+    // Keys are automatically reindexed!
+    $filtered->all(); // [0 => 3, 1 => 4, 2 => 5]
+    ```
+    
+    <Tip>
+    With standard Laravel Collections, this would return `[2 => 3, 3 => 4, 4 => 5]` with gaps in the keys. `ListCollection` automatically reindexes to maintain sequential keys.
+    </Tip>
+  </Step>
+</Steps>
 
-    1. Open `docs.json` in your editor.
-    2. Change the `"name"` field to your project name.
-    3. Update the `"colors"` to match your brand.
-    4. Save and see your changes instantly at `http://localhost:3000`.
+## The Reindexing Advantage
 
-    <Tip>Try changing the primary color to see an immediate difference!</Tip>
-  </Accordion>
-</AccordionGroup>
+Let's see automatic reindexing in action across different operations:
 
-### Step 3: Go live
+<CodeGroup>
+```php Constructor Reindexing
+// Associative array gets reindexed immediately
+$list = new ListCollection(['a' => 1, 'b' => 2, 'c' => 3]);
 
-<Accordion icon="rocket" title="Publish your docs">
-  1. Commit and push your changes.
-  2. Your docs will update and be live in moments!
-</Accordion>
+$list->all(); // [0 => 1, 1 => 2, 2 => 3]
 
-## Next steps
+// Non-sequential keys also get reindexed
+$list = new ListCollection([5 => 'apple', 10 => 'banana', 15 => 'cherry']);
 
-Now that you have your docs running, explore these key features:
+$list->all(); // [0 => 'apple', 1 => 'banana', 2 => 'cherry']
+```
+
+```php Removing Items
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+
+// Remove item at index 1
+$list->forget(1);
+
+$list->all(); // [0 => 'a', 1 => 'c', 2 => 'd']
+//                     ↑        ↑        ↑
+//                  Reindexed automatically!
+```
+
+```php Sorting
+$list = new ListCollection([3, 1, 4, 1, 5]);
+
+$sorted = $list->sort();
+
+$sorted->all(); // [0 => 1, 1 => 1, 2 => 3, 3 => 4, 4 => 5]
+//                  ↑     ↑     ↑     ↑     ↑
+//               Sequential keys maintained
+```
+
+```php Chaining Operations
+$list = new ListCollection([5, 3, 1, 4, 2, 3, 5]);
+
+$result = $list
+    ->filter(fn($v) => $v > 1)    // Remove items ≤ 1
+    ->unique()                     // Remove duplicates
+    ->sort();                      // Sort ascending
+
+$result->all(); // [0 => 2, 1 => 3, 2 => 4, 3 => 5]
+//                  ↑     ↑     ↑     ↑
+//               Always sequential, no matter how many operations!
+```
+</CodeGroup>
+
+## Working with JSON
+
+One of the most practical benefits of `ListCollection` is predictable JSON serialization:
+
+```php
+use dhy\LaravelList\ListCollection;
+
+// Create a filtered list
+$numbers = new ListCollection([1, 2, 3, 4, 5, 6]);
+$evenNumbers = $numbers->filter(fn($n) => $n % 2 === 0);
+
+// Convert to JSON
+echo $evenNumbers->toJson();
+// Output: [2,4,6]
+//         ↑
+//    JSON array, not an object!
+
+// Compare with standard Collection:
+$standardCollection = collect([1, 2, 3, 4, 5, 6])
+    ->filter(fn($n) => $n % 2 === 0);
+    
+echo $standardCollection->toJson();
+// Output: {"1":2,"3":4,"5":6}
+//         ↑
+//    JSON object with string keys
+```
+
+## Common Operations
+
+Here are some common operations you'll use with `ListCollection`:
+
+### Adding Items
+
+```php
+$list = new ListCollection(['a', 'b']);
+
+// Append to the end
+$list->push('c');
+$list->all(); // [0 => 'a', 1 => 'b', 2 => 'c']
+
+// Add to the beginning
+$list->prepend('z');
+$list->all(); // [0 => 'z', 1 => 'a', 2 => 'b', 3 => 'c']
+
+// Using array syntax
+$list[] = 'd';
+$list->all(); // [0 => 'z', 1 => 'a', 2 => 'b', 3 => 'c', 4 => 'd']
+```
+
+### Removing Items
+
+```php
+$list = new ListCollection(['apple', 'banana', 'cherry', 'date']);
+
+// Remove by index
+$list->forget(1);
+$list->all(); // [0 => 'apple', 1 => 'cherry', 2 => 'date']
+
+// Remove and return
+$item = $list->pull(0);
+echo $item; // 'apple'
+$list->all(); // [0 => 'cherry', 1 => 'date']
+
+// Remove from end
+$last = $list->pop();
+echo $last; // 'date'
+$list->all(); // [0 => 'cherry']
+```
+
+### Transforming Data
+
+```php
+$list = new ListCollection([1, 2, 3, 4]);
+
+// Map to new values
+$doubled = $list->map(fn($n) => $n * 2);
+$doubled->all(); // [0 => 2, 1 => 4, 2 => 6, 3 => 8]
+
+// Transform in place
+$list->transform(fn($n) => $n * 10);
+$list->all(); // [0 => 10, 1 => 20, 2 => 30, 3 => 40]
+
+// Filter with callback
+$list = new ListCollection([1, 2, 3, 4, 5, 6]);
+$odds = $list->filter(fn($n) => $n % 2 !== 0);
+$odds->all(); // [0 => 1, 1 => 3, 2 => 5]
+```
+
+## Practical Example: Processing API Data
+
+Let's build a realistic example of processing user data for an API response:
+
+```php
+use dhy\LaravelList\ListCollection;
+
+// Simulate fetching users from database
+$users = [
+    ['id' => 5, 'name' => 'Charlie', 'active' => false, 'role' => 'user'],
+    ['id' => 1, 'name' => 'Alice', 'active' => true, 'role' => 'admin'],
+    ['id' => 3, 'name' => 'Bob', 'active' => true, 'role' => 'user'],
+    ['id' => 8, 'name' => 'Diana', 'active' => true, 'role' => 'user'],
+    ['id' => 2, 'name' => 'Eve', 'active' => false, 'role' => 'user'],
+];
+
+// Process with ListCollection
+$activeUserList = (new ListCollection($users))
+    // Keep only active users
+    ->filter(fn($user) => $user['active'])
+    // Sort by name
+    ->sortBy('name')
+    // Extract just the data we need
+    ->map(fn($user) => [
+        'id' => $user['id'],
+        'name' => $user['name'],
+        'role' => $user['role'],
+    ]);
+
+// Convert to JSON for API response
+echo $activeUserList->toJson();
+
+/* Output (formatted for readability):
+[
+  {"id":1,"name":"Alice","role":"admin"},
+  {"id":3,"name":"Bob","role":"user"},
+  {"id":8,"name":"Diana","role":"user"}
+]
+
+Notice:
+- Array keys are sequential [0, 1, 2]
+- JSON is a true array, not an object
+- Perfect for frontend consumption
+*/
+```
+
+## Key Differences from Standard Collection
+
+<Warning>
+**Some Collection methods are blocked** because they would produce associative keys:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+
+// These throw BadMethodCallException:
+$list->flip();              // Would swap keys and values
+$list->groupBy('category'); // Would create associative groups
+$list->keyBy('id');         // Would use 'id' as keys
+$list->countBy();           // Would create value => count map
+$list->mapWithKeys(...);    // Would create custom keys
+```
+
+This is by design! It prevents accidentally breaking the sequential key guarantee.
+</Warning>
+
+<Tip>
+If you need these operations, use Laravel's standard `Collection` class instead. Laravel List is specifically for when you need list behavior.
+</Tip>
+
+## Static Factory Methods
+
+You can also create `ListCollection` instances using static factory methods:
+
+```php
+// Create from array
+$list = ListCollection::make([1, 2, 3]);
+
+// Generate with callback
+$list = ListCollection::times(5, fn($i) => $i * 10);
+$list->all(); // [0 => 10, 1 => 20, 2 => 30, 3 => 40, 4 => 50]
+
+// Wrap a single value
+$list = ListCollection::wrap('hello');
+$list->all(); // [0 => 'hello']
+```
+
+## Next Steps
 
 <CardGroup cols={2}>
-
-<Card title="Write Content" icon="pen-to-square" href="/essentials/markdown">
-  Learn MDX syntax and start writing your documentation.
-</Card>
-
-<Card title="Customize style" icon="palette" href="/essentials/settings">
-  Make your docs match your brand perfectly.
-</Card>
-
-<Card title="Add code examples" icon="square-code" href="/essentials/code">
-  Include syntax-highlighted code blocks.
-</Card>
-
-<Card title="API documentation" icon="code" href="/api-reference/introduction">
-  Auto-generate API docs from OpenAPI specs.
-</Card>
-
+  <Card title="Core Concepts" icon="book" href="/concepts/list-invariant">
+    Learn about the reindexing mechanism, method overrides, and design philosophy.
+  </Card>
+  
+  <Card title="API Reference" icon="code" href="/api/constructor">
+    Explore all available methods and their behavior with detailed examples.
+  </Card>
 </CardGroup>
-
-<Note>
-  **Need help?** See our [full documentation](https://mintlify.com/docs) or join our [community](https://mintlify.com/community).
-</Note>

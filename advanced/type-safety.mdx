@@ -1,0 +1,308 @@
+---
+title: Type Safety
+description: Learn how to leverage PHPStan generic support for type-safe ListCollection operations with full IDE autocomplete and static analysis
+---
+
+## PHPStan Generic Support
+
+ListCollection provides full generic type support through PHPStan annotations, enabling type-safe operations with complete IDE autocomplete and static analysis.
+
+### Template Definition
+
+The class uses the `@template TValue` annotation to enable generic type inference:
+
+```php
+/**
+ * @template TValue
+ *
+ * @extends Collection<int, TValue>
+ */
+class ListCollection extends Collection
+{
+    // ...
+}
+```
+
+This means ListCollection maintains type information about its values while enforcing that keys are always integers.
+
+## Type Inference Examples
+
+### Automatic Type Inference
+
+PHPStan automatically infers the value type from the items you pass:
+
+```php
+// Inferred as ListCollection<int>
+$numbers = new ListCollection([1, 2, 3, 4, 5]);
+
+// Inferred as ListCollection<string>
+$names = new ListCollection(['Alice', 'Bob', 'Charlie']);
+
+// Inferred as ListCollection<User>
+$users = new ListCollection([
+    new User('alice@example.com'),
+    new User('bob@example.com'),
+]);
+```
+
+### Explicit Type Annotations
+
+For better clarity and type safety, especially with empty collections, use explicit PHPDoc annotations:
+
+```php
+/** @var ListCollection<Product> */
+$products = new ListCollection();
+
+// Now PHPStan knows this returns Product|null
+$first = $products->first();
+
+// And this callback expects Product
+$products->each(function (Product $product) {
+    $product->activate();
+});
+```
+
+## Type-Safe Operations
+
+### Mapping with Type Transformations
+
+The `map()` method preserves type information through transformations:
+
+```php
+/** @var ListCollection<int> */
+$numbers = new ListCollection([1, 2, 3]);
+
+// PHPStan infers ListCollection<string>
+$strings = $numbers->map(fn(int $n): string => "Number: {$n}");
+
+// PHPStan infers ListCollection<float>
+$floats = $numbers->map(fn(int $n): float => $n * 1.5);
+```
+
+### Transform Method with Type Changes
+
+The `transform()` method supports type changes with the `@phpstan-this-out` annotation:
+
+```php
+/**
+ * @template TMapValue
+ *
+ * @param  callable(TValue, int): TMapValue  $callback
+ *
+ * @phpstan-this-out static<TMapValue>
+ */
+public function transform(callable $callback): static
+```
+
+Usage example:
+
+```php
+/** @var ListCollection<int> $collection */
+$collection = new ListCollection([1, 2, 3]);
+
+// After transform, it's ListCollection<string>
+$collection->transform(fn(int $n): string => "Item {$n}");
+```
+
+<Warning>
+Unlike `map()`, which returns a new collection, `transform()` mutates the original collection and changes its type. Make sure your variable annotation reflects the new type after transformation.
+</Warning>
+
+### Pull Method with Default Types
+
+The `pull()` method demonstrates advanced generic usage with default values:
+
+```php
+/**
+ * @template TPullDefault
+ *
+ * @param  int  $key
+ * @param  TPullDefault|(Closure(): TPullDefault)  $default
+ * @return TValue|TPullDefault
+ */
+public function pull($key, $default = null)
+```
+
+Type-safe usage:
+
+```php
+/** @var ListCollection<string> */
+$names = new ListCollection(['Alice', 'Bob']);
+
+// Returns: string
+$first = $names->pull(0, 'Unknown');
+
+// Returns: string|int (union type)
+$value = $names->pull(10, 42);
+```
+
+## Working with Complex Types
+
+### Collections of Objects
+
+```php
+class Order
+{
+    public function __construct(
+        public int $id,
+        public float $total,
+        public string $status,
+    ) {}
+}
+
+/** @var ListCollection<Order> */
+$orders = new ListCollection([
+    new Order(1, 99.99, 'pending'),
+    new Order(2, 149.99, 'shipped'),
+    new Order(3, 79.99, 'delivered'),
+]);
+
+// PHPStan knows this is ListCollection<Order>
+$pending = $orders->filter(
+    fn(Order $order): bool => $order->status === 'pending'
+);
+
+// PHPStan knows this is ListCollection<float>
+$totals = $orders->map(
+    fn(Order $order): float => $order->total
+);
+
+// PHPStan knows $order is Order
+$orders->each(function (Order $order) {
+    echo "Order #{$order->id}: {$order->status}\n";
+});
+```
+
+### Nested Collections
+
+```php
+/** @var ListCollection<ListCollection<int>> */
+$matrix = new ListCollection([
+    new ListCollection([1, 2, 3]),
+    new ListCollection([4, 5, 6]),
+    new ListCollection([7, 8, 9]),
+]);
+
+// PHPStan infers ListCollection<int>
+$flattened = $matrix->flatten();
+
+// Access with full type safety
+$firstRow = $matrix->first(); // ListCollection<int>
+$firstValue = $firstRow?->first(); // int|null
+```
+
+## Type Safety with Static Factories
+
+### Make Factory
+
+```php
+// Type is inferred from input
+$list = ListCollection::make([1, 2, 3]); // ListCollection<int>
+
+// Explicit annotation for clarity
+/** @var ListCollection<string> */
+$names = ListCollection::make(['Alice', 'Bob']);
+```
+
+### Times Factory
+
+```php
+// PHPStan infers the return type from the callback
+$list = ListCollection::times(5, fn(int $i): string => "Item {$i}");
+// Type: ListCollection<string>
+```
+
+### Wrap Factory
+
+```php
+$single = ListCollection::wrap('value'); // ListCollection<string>
+$array = ListCollection::wrap([1, 2, 3]); // ListCollection<int>
+```
+
+## PHPStan Configuration
+
+To get full type safety benefits, ensure you have PHPStan configured in your project:
+
+<Note>
+Laravel List requires PHPStan/Larastan for type inference. The package is tested with `larastan/larastan: ^3.0`.
+</Note>
+
+### Basic Configuration
+
+Add to your `phpstan.neon` or `phpstan.neon.dist`:
+
+```neon
+includes:
+    - vendor/larastan/larastan/extension.neon
+
+parameters:
+    level: 8
+    paths:
+        - app
+        - tests
+```
+
+### IDE Support
+
+For full IDE autocomplete and type hints:
+
+**PhpStorm**: PHPStan annotations are supported natively. Install the PHPStan plugin for enhanced support.
+
+**VS Code**: Install the PHPStan extension and configure it to use your project's PHPStan configuration.
+
+## Common Type Issues
+
+### Issue: Lost Type Information
+
+```php
+// ❌ Type information is lost
+$collection = new ListCollection([1, 2, 3]);
+foreach ($collection as $item) {
+    // $item is mixed, not int
+}
+```
+
+**Solution**: Add explicit type annotations:
+
+```php
+// ✅ Type information is preserved
+/** @var ListCollection<int> */
+$collection = new ListCollection([1, 2, 3]);
+
+foreach ($collection as $item) {
+    // $item is now int
+    echo $item * 2;
+}
+```
+
+### Issue: Empty Collections
+
+```php
+// ❌ Type cannot be inferred from empty array
+$collection = new ListCollection([]);
+```
+
+**Solution**: Always annotate empty collections:
+
+```php
+// ✅ Explicit type annotation
+/** @var ListCollection<User> */
+$users = new ListCollection();
+```
+
+<Tip>
+When working with Laravel Eloquent models, consider using `ListCollection::make($query->get())` with a type annotation to maintain type safety throughout your application.
+</Tip>
+
+## Benefits of Type Safety
+
+1. **IDE Autocomplete**: Get accurate method suggestions and parameter hints
+2. **Early Error Detection**: Catch type mismatches before runtime
+3. **Refactoring Confidence**: Safely rename and restructure code
+4. **Documentation**: Types serve as inline documentation
+5. **Reduced Testing**: Static analysis catches bugs that would require tests
+
+## Next Steps
+
+- Learn about [Performance Considerations](/advanced/performance) when using type-safe operations
+- See [Migration Guide](/advanced/migration-from-collection) for converting existing Collection code

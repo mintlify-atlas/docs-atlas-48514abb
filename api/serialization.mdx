@@ -1,0 +1,244 @@
+---
+title: Serialization
+description: Methods for converting ListCollection to arrays and JSON with list structure preservation
+---
+
+## Overview
+
+ListCollection provides serialization methods that maintain the list structure. All methods ensure output has sequential integer keys (0, 1, 2, ...) suitable for JSON arrays.
+
+## toArray()
+
+Convert the collection to a plain PHP array with sequential keys.
+
+### Signature
+
+```php
+public function toArray(): array
+```
+
+**Returns:** `array` - Sequential array with integer keys starting from 0.
+
+### Examples
+
+```php
+$list = new ListCollection(['a' => 1, 'b' => 2]);
+$array = $list->toArray();
+
+array_is_list($array);
+// true
+
+$array;
+// [0 => 1, 1 => 2]
+```
+
+### Key Point
+
+The `toArray()` method always returns a sequential array (PHP 8.1+ list), never an associative array:
+
+```php
+$list = new ListCollection(['x' => 1, 'y' => 2, 'z' => 3]);
+$array = $list->toArray();
+
+array_is_list($array);
+// true (confirmed to be a list)
+```
+
+## toJson()
+
+Convert the collection to a JSON array string.
+
+### Signature
+
+```php
+public function toJson($options = 0): string
+```
+
+<ParamField path="options" type="int" default="0">
+  JSON encoding options (e.g., JSON_PRETTY_PRINT, JSON_UNESCAPED_SLASHES).
+</ParamField>
+
+**Returns:** `string` - JSON array string (not an object).
+
+### Examples
+
+#### Basic JSON encoding
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$json = $list->toJson();
+
+$json;
+// '["a","b","c"]'
+```
+
+#### JSON array after filtering
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$json = $list->filter(fn(int $v): bool => $v > 2)->toJson();
+
+$json;
+// '[3,4,5]'
+```
+
+#### Pretty-printed JSON
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$json = $list->toJson(JSON_PRETTY_PRINT);
+
+$json;
+// '[
+//     "a",
+//     "b",
+//     "c"
+// ]'
+```
+
+### JSON Arrays vs. Objects
+
+ListCollection always produces JSON arrays `[]`, never JSON objects `{}`:
+
+```php
+// Standard Collection with associative keys
+$collection = new Collection(['x' => 1, 'y' => 2]);
+$collection->toJson();
+// '{"x":1,"y":2}' (JSON object)
+
+// ListCollection with same data
+$list = new ListCollection(['x' => 1, 'y' => 2]);
+$list->toJson();
+// '[1,2]' (JSON array)
+```
+
+## all()
+
+Get all items as a sequential array.
+
+### Signature
+
+```php
+public function all(): array
+```
+
+**Returns:** `array` - Sequential array with integer keys.
+
+### Examples
+
+```php
+$list = new ListCollection(['x' => 1, 'y' => 2, 'z' => 3]);
+$array = $list->all();
+
+array_is_list($array);
+// true
+
+$array;
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+### Usage in Tests
+
+The `all()` method is commonly used to verify collection contents:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+$list->forget(1);
+
+$list->all();
+// [0 => 'a', 1 => 'c']
+```
+
+## values()
+
+Return a new collection with reindexed values (equivalent for ListCollection).
+
+### Signature
+
+```php
+public function values(): static
+```
+
+**Returns:** `ListCollection` - New collection with sequential keys.
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3]);
+$values = $list->values();
+
+$values->all();
+// [0 => 1, 1 => 2, 2 => 3]
+
+// For ListCollection, values() returns equivalent collection
+$values->all() === $list->all();
+// true
+```
+
+### Why values() Exists
+
+While `values()` seems redundant for `ListCollection` (since keys are already sequential), it exists for API compatibility with Laravel's `Collection` class:
+
+```php
+// Standard Collection
+$collection = new Collection(['x' => 1, 'y' => 2]);
+$collection->values()->all();
+// [0 => 1, 1 => 2]
+
+// ListCollection (already sequential)
+$list = new ListCollection(['x' => 1, 'y' => 2]);
+$list->values()->all();
+// [0 => 1, 1 => 2] (same as $list->all())
+```
+
+## Practical Examples
+
+### API Response
+
+```php
+$users = new ListCollection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+    ['id' => 3, 'name' => 'Charlie'],
+]);
+
+// Filter active users and return JSON
+$activeUsers = $users
+    ->filter(fn($user) => $user['active'] ?? true)
+    ->toJson();
+
+// Returns JSON array:
+// '[{"id":1,"name":"Alice"},{"id":2,"name":"Bob"}]'
+```
+
+### Database Results
+
+```php
+// Convert database results to sequential list
+$results = DB::table('items')
+    ->where('active', true)
+    ->get();
+
+$list = new ListCollection($results);
+
+return response()->json([
+    'items' => $list->toArray(),
+    'count' => $list->count(),
+]);
+
+// Response:
+// {
+//   "items": [{...}, {...}],  // JSON array
+//   "count": 2
+// }
+```
+
+## Key Points
+
+- All serialization methods maintain sequential integer keys (0, 1, 2, ...)
+- `toJson()` always produces JSON arrays `[]`, never objects `{}`
+- `toArray()` returns PHP sequential arrays (true lists in PHP 8.1+)
+- `all()` is commonly used for testing and verification
+- `values()` exists for API compatibility, but is equivalent to `all()` for ListCollection
+- Perfect for REST APIs that expect JSON arrays, not objects
+- Compatible with JavaScript array expectations

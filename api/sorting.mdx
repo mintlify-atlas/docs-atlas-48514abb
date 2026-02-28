@@ -1,0 +1,198 @@
+---
+title: Sorting
+description: Methods for sorting ListCollection elements with automatic reindexing
+---
+
+## Overview
+
+ListCollection provides sorting methods that return new collections with sequential integer keys. All sorting operations preserve the list structure.
+
+## sort()
+
+Sort elements in ascending order.
+
+### Signature
+
+```php
+public function sort($callback = null): static
+```
+
+<ParamField path="callback" type="callable|int|null" default="null">
+  Optional comparison callback or sort flags.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([3, 1, 4, 1, 5]);
+$sorted = $list->sort();
+
+$sorted->all();
+// [0 => 1, 1 => 1, 2 => 3, 3 => 4, 4 => 5]
+```
+
+## sortDesc()
+
+Sort elements in descending order.
+
+### Signature
+
+```php
+public function sortDesc($options = SORT_REGULAR): static
+```
+
+<ParamField path="options" type="int" default="SORT_REGULAR">
+  Sort flags (e.g., SORT_REGULAR, SORT_NUMERIC, SORT_STRING).
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 3, 2]);
+$sorted = $list->sortDesc();
+
+$sorted->all();
+// [0 => 3, 1 => 2, 2 => 1]
+```
+
+## sortBy()
+
+Sort elements by a field or callback result in ascending order.
+
+### Signature
+
+```php
+public function sortBy($callback, $options = SORT_REGULAR, $descending = false): static
+```
+
+<ParamField path="callback" type="callable|string" required>
+  Field name or callback to determine sort value.
+</ParamField>
+
+<ParamField path="options" type="int" default="SORT_REGULAR">
+  Sort flags.
+</ParamField>
+
+<ParamField path="descending" type="bool" default="false">
+  Sort in descending order.
+</ParamField>
+
+### Examples
+
+#### Sort by field name
+
+```php
+$list = new ListCollection([
+    ['name' => 'Charlie'],
+    ['name' => 'Alice'],
+    ['name' => 'Bob'],
+]);
+
+$sorted = $list->sortBy('name');
+
+$sorted->all();
+// [
+//   0 => ['name' => 'Alice'],
+//   1 => ['name' => 'Bob'],
+//   2 => ['name' => 'Charlie']
+// ]
+
+$sorted->first()['name']; // 'Alice'
+$sorted->last()['name'];  // 'Charlie'
+```
+
+#### Sort by callback
+
+```php
+$list = new ListCollection([
+    ['age' => 30],
+    ['age' => 20],
+    ['age' => 25],
+]);
+
+$sorted = $list->sortBy(fn($item) => $item['age']);
+
+$sorted->pluck('age')->all();
+// [0 => 20, 1 => 25, 2 => 30]
+```
+
+## sortByDesc()
+
+Sort elements by a field or callback result in descending order.
+
+### Signature
+
+```php
+public function sortByDesc($callback, $options = SORT_REGULAR): static
+```
+
+<ParamField path="callback" type="callable|string" required>
+  Field name or callback to determine sort value.
+</ParamField>
+
+<ParamField path="options" type="int" default="SORT_REGULAR">
+  Sort flags.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([
+    ['name' => 'Alice'],
+    ['name' => 'Charlie'],
+    ['name' => 'Bob'],
+]);
+
+$sorted = $list->sortByDesc('name');
+
+$sorted->all();
+// [
+//   0 => ['name' => 'Charlie'],
+//   1 => ['name' => 'Bob'],
+//   2 => ['name' => 'Alice']
+// ]
+
+$sorted->first()['name']; // 'Charlie'
+$sorted->last()['name'];  // 'Alice'
+```
+
+## Advanced Examples
+
+### Chaining sort with other operations
+
+```php
+$list = new ListCollection([5, 3, 1, 4, 2, 3, 5]);
+
+$result = $list
+    ->filter(fn(int $v): bool => $v > 1)
+    ->unique()
+    ->sort();
+
+$result->all();
+// [0 => 2, 1 => 3, 2 => 4, 3 => 5]
+```
+
+### Sort complex objects
+
+```php
+$list = new ListCollection([
+    ['name' => 'John', 'age' => 30],
+    ['name' => 'Jane', 'age' => 25],
+    ['name' => 'Bob', 'age' => 35],
+]);
+
+// Sort by age ascending
+$byAge = $list->sortBy('age');
+
+// Sort by name descending
+$byName = $list->sortByDesc('name');
+```
+
+## Key Points
+
+- All sorting methods return a new `ListCollection` with sequential keys (0, 1, 2, ...)
+- Original collection is not modified (immutable operations)
+- `sort()` and `sortDesc()` work on simple values
+- `sortBy()` and `sortByDesc()` accept field names or callbacks for complex sorting
+- Results always maintain list structure with reindexed keys
+- Sort methods can be chained with other collection operations

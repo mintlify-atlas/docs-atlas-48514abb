@@ -1,0 +1,410 @@
+---
+title: Automatic Reindexing
+description: How and when ListCollection automatically reindexes to maintain sequential keys
+---
+
+## What is Reindexing?
+
+**Reindexing** is the process of resetting array keys to be sequential starting from 0. In PHP, this is typically done with `array_values()`:
+
+```php
+$array = [0 => 'a', 2 => 'c', 5 => 'f'];
+$reindexed = array_values($array);
+// [0 => 'a', 1 => 'c', 2 => 'f']
+```
+
+`ListCollection` performs reindexing automatically to maintain the [list invariant](/concepts/list-invariant) whenever operations would create gaps in the sequence.
+
+## When Reindexing Happens
+
+### 1. **During Construction**
+
+Every `ListCollection` reindexes its input immediately:
+
+```php
+// Associative keys removed
+$list = new ListCollection(['x' => 1, 'y' => 2, 'z' => 3]);
+var_dump($list->all());
+// [0 => 1, 1 => 2, 2 => 3]
+
+// Non-sequential integers reindexed
+$list = new ListCollection([10 => 'a', 20 => 'b', 30 => 'c']);
+var_dump($list->all());
+// [0 => 'a', 1 => 'b', 2 => 'c']
+
+// Already sequential? Still reindexed (idempotent operation)
+$list = new ListCollection([0 => 'x', 1 => 'y', 2 => 'z']);
+var_dump($list->all());
+// [0 => 'x', 1 => 'y', 2 => 'z']
+```
+
+<Info>
+See ListCollectionTest.php:9-41 for constructor reindexing tests, and ListCollection.php:20-24 for the implementation.
+</Info>
+
+### 2. **After Element Removal**
+
+Removing elements creates gaps that must be filled:
+
+#### Using `forget()`
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+// Keys: [0 => 'a', 1 => 'b', 2 => 'c', 3 => 'd']
+
+$list->forget(1); // Remove 'b'
+
+var_dump($list->all());
+// Before reindex: [0 => 'a', 2 => 'c', 3 => 'd'] ❌ Gap at index 1!
+// After reindex:  [0 => 'a', 1 => 'c', 2 => 'd'] ✅
+```
+
+<Info>
+See ListCollectionTest.php:178-184 and ListCollection.php:78-88 for `forget()` behavior.
+</Info>
+
+#### Using `offsetUnset()` (array syntax)
+
+```php
+$list = new ListCollection(['x', 'y', 'z']);
+// Keys: [0 => 'x', 1 => 'y', 2 => 'z']
+
+unset($list[0]); // Remove first element
+
+var_dump($list->all());
+// Before reindex: [1 => 'y', 2 => 'z'] ❌ Doesn't start at 0!
+// After reindex:  [0 => 'y', 1 => 'z'] ✅
+```
+
+<Info>
+See ListCollectionTest.php:210-216 and ListCollection.php:47-52 for `offsetUnset()` behavior.
+</Info>
+
+#### Using `pull()`
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+// Keys: [0 => 'a', 1 => 'b', 2 => 'c']
+
+$value = $list->pull(1); // Remove and return 'b'
+
+echo $value; // "b"
+var_dump($list->all());
+// [0 => 'a', 1 => 'c']
+```
+
+<Info>
+See ListCollectionTest.php:220-226 and ListCollection.php:61-68 for `pull()` behavior.
+</Info>
+
+#### Multiple Removals
+
+You can remove multiple elements at once:
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+// Keys: [0 => 'a', 1 => 'b', 2 => 'c', 3 => 'd']
+
+$list->forget([0, 2]); // Remove 'a' and 'c'
+
+var_dump($list->all());
+// Before reindex: [1 => 'b', 3 => 'd'] ❌
+// After reindex:  [0 => 'b', 1 => 'd'] ✅
+```
+
+<Info>
+See ListCollectionTest.php:186-192 for multiple removal tests.
+</Info>
+
+### 3. **After Filtering Operations**
+
+Filtering removes elements, requiring reindexing:
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+// Keys: [0 => 1, 1 => 2, 2 => 3, 3 => 4, 4 => 5]
+
+$filtered = $list->filter(fn($v) => $v > 2);
+
+var_dump($filtered->all());
+// Parent Collection would give: [2 => 3, 3 => 4, 4 => 5] ❌
+// ListCollection gives:        [0 => 3, 1 => 4, 2 => 5] ✅
+```
+
+<Info>
+See ListCollectionTest.php:45-52 for filter reindexing behavior.
+</Info>
+
+#### Other Filtering Methods
+
+All filtering operations reindex:
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+
+// reject() - inverse of filter
+$list->reject(fn($v) => $v % 2 === 0);
+// [0 => 1, 1 => 3, 2 => 5]
+
+// where() - filter by attribute
+$list = new ListCollection([
+    ['active' => true, 'name' => 'A'],
+    ['active' => false, 'name' => 'B'],
+    ['active' => true, 'name' => 'C'],
+]);
+$list->where('active', true);
+// [0 => ['active' => true, 'name' => 'A'],
+//  1 => ['active' => true, 'name' => 'C']]
+
+// whereIn() - filter by value inclusion
+$list = new ListCollection([
+    ['id' => 1, 'name' => 'Alice'],
+    ['id' => 2, 'name' => 'Bob'],
+    ['id' => 3, 'name' => 'Charlie'],
+]);
+$list->whereIn('id', [1, 3]);
+// [0 => ['id' => 1, 'name' => 'Alice'],
+//  1 => ['id' => 3, 'name' => 'Charlie']]
+```
+
+<Info>
+See ListCollectionTest.php:372-411 for filtering method tests.
+</Info>
+
+### 4. **After Sorting Operations**
+
+Sorting changes element order, breaking sequential keys:
+
+```php
+$list = new ListCollection([3, 1, 4, 1, 5]);
+// Keys: [0 => 3, 1 => 1, 2 => 4, 3 => 1, 4 => 5]
+
+$sorted = $list->sort();
+
+var_dump($sorted->all());
+// Parent Collection would give: [1 => 1, 3 => 1, 0 => 3, 2 => 4, 4 => 5] ❌
+// ListCollection gives:        [0 => 1, 1 => 1, 2 => 3, 3 => 4, 4 => 5] ✅
+```
+
+<Info>
+See ListCollectionTest.php:64-71 for sort reindexing tests.
+</Info>
+
+#### Other Sorting Methods
+
+```php
+$list = new ListCollection([
+    ['name' => 'Charlie'],
+    ['name' => 'Alice'],
+    ['name' => 'Bob'],
+]);
+
+// sortBy()
+$list->sortBy('name');
+// [0 => ['name' => 'Alice'],
+//  1 => ['name' => 'Bob'],
+//  2 => ['name' => 'Charlie']]
+
+// sortDesc()
+$list = new ListCollection([1, 3, 2]);
+$list->sortDesc();
+// [0 => 3, 1 => 2, 2 => 1]
+
+// sortByDesc()
+$list = new ListCollection([
+    ['name' => 'Alice'],
+    ['name' => 'Charlie'],
+    ['name' => 'Bob'],
+]);
+$list->sortByDesc('name');
+// [0 => ['name' => 'Charlie'],
+//  1 => ['name' => 'Bob'],
+//  2 => ['name' => 'Alice']]
+```
+
+<Info>
+See ListCollectionTest.php:73-109 for additional sorting tests.
+</Info>
+
+### 5. **After Deduplication**
+
+```php
+$list = new ListCollection([1, 2, 2, 3, 3, 3]);
+// Keys: [0 => 1, 1 => 2, 2 => 2, 3 => 3, 4 => 3, 5 => 3]
+
+$unique = $list->unique();
+
+var_dump($unique->all());
+// Before reindex: [0 => 1, 1 => 2, 3 => 3] ❌ Gap at index 2!
+// After reindex:  [0 => 1, 1 => 2, 2 => 3] ✅
+```
+
+<Info>
+See ListCollectionTest.php:113-120 for unique reindexing tests.
+</Info>
+
+### 6. **After Set Operations**
+
+```php
+// diff() - elements in first but not second
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$diff = $list->diff([2, 4]);
+var_dump($diff->all());
+// [0 => 1, 1 => 3, 2 => 5]
+
+// intersect() - elements in both
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$intersect = $list->intersect([2, 4, 6]);
+var_dump($intersect->all());
+// [0 => 2, 1 => 4]
+```
+
+<Info>
+See ListCollectionTest.php:123-138 for set operation tests.
+</Info>
+
+### 7. **After Slice/Skip/Take Operations**
+
+Extracting subsets reindexes:
+
+```php
+// slice()
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e']);
+$sliced = $list->slice(2);
+var_dump($sliced->all());
+// [0 => 'c', 1 => 'd', 2 => 'e']
+
+// only() - keep only specified indices
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$result = $list->only([0, 2]);
+var_dump($result->all());
+// [0 => 'a', 1 => 'c']
+
+// except() - remove specified indices
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$result = $list->except([1, 3]);
+var_dump($result->all());
+// [0 => 'a', 1 => 'c']
+```
+
+<Info>
+See ListCollectionTest.php:141-175 for slice/skip/take operation tests.
+</Info>
+
+## Operations That Don't Trigger Reindexing
+
+Some operations maintain sequential keys naturally:
+
+### Adding Elements
+
+```php
+$list = new ListCollection(['a', 'b']);
+
+// push() - adds to end
+$list->push('c');
+// [0 => 'a', 1 => 'b', 2 => 'c']
+
+// prepend() - adds to beginning (uses array_unshift)
+$list->prepend('z');
+// [0 => 'z', 1 => 'a', 2 => 'b', 3 => 'c']
+
+// Array syntax with null key
+$list[] = 'd';
+// [0 => 'z', 1 => 'a', 2 => 'b', 3 => 'c', 4 => 'd']
+```
+
+<Info>
+See ListCollectionTest.php:306-322 for prepend tests and ListCollectionTest.php:249-254 for push tests.
+</Info>
+
+### Mapping
+
+```php
+$list = new ListCollection([1, 2, 3]);
+
+$mapped = $list->map(fn($v) => $v * 2);
+var_dump($mapped->all());
+// [0 => 2, 1 => 4, 2 => 6]
+```
+
+<Warning>
+Note that `map()` returns a **new** `ListCollection`, while `transform()` modifies the existing collection in place.
+</Warning>
+
+<Info>
+See ListCollectionTest.php:363-369 for map tests.
+</Info>
+
+## Chained Operations and Reindexing
+
+Each operation that needs reindexing does so independently:
+
+```php
+$list = new ListCollection([5, 3, 1, 4, 2, 3, 5]);
+
+$result = $list
+    ->filter(fn($v) => $v > 1)  // [0 => 5, 1 => 3, 2 => 4, 3 => 2, 4 => 3, 5 => 5]
+    ->unique()                   // [0 => 5, 1 => 3, 2 => 4, 3 => 2]
+    ->sort();                    // [0 => 2, 1 => 3, 2 => 4, 3 => 5]
+
+var_dump($result->all());
+// [0 => 2, 1 => 3, 2 => 4, 3 => 5]
+```
+
+<Info>
+See ListCollectionTest.php:415-425 for chained operation tests.
+</Info>
+
+### Caveat: Index Changes Between Operations
+
+Because reindexing happens after each operation, indices change:
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+
+$list->forget(1); // removes 'b'
+// Now: [0 => 'a', 1 => 'c', 2 => 'd']
+
+$list->forget(1); // removes 'c' (NOT 'b'!)
+// Now: [0 => 'a', 1 => 'd']
+```
+
+<Info>
+See ListCollectionTest.php:427-434 for sequential forget() behavior.
+</Info>
+
+<Warning>
+When performing multiple removals, be careful about changing indices. Consider using `forget([...])` with multiple indices calculated from the original array, or remove elements from highest index to lowest.
+</Warning>
+
+## Performance Considerations
+
+`array_values()` is a native PHP operation and is very fast, but it does create a new array. For most use cases, the performance impact is negligible.
+
+If you're working with extremely large collections (100k+ items) and performing many removal operations in a loop, consider:
+
+1. **Batch removals** - Use `forget([...])` with multiple keys instead of calling `forget()` repeatedly
+2. **Filter instead of remove** - Use `filter()` or `reject()` to create a new collection in one pass
+3. **Use regular Collection** - If you don't need the list invariant, regular `Collection` might be more appropriate
+
+## Summary
+
+| Operation | Triggers Reindexing | Example |
+|-----------|-------------------|------|
+| Constructor | ✅ Always | `new ListCollection(['x' => 1])` |
+| `forget()` | ✅ Yes | `$list->forget(1)` |
+| `offsetUnset()` | ✅ Yes | `unset($list[1])` |
+| `pull()` | ✅ Yes | `$list->pull(1)` |
+| `filter()` | ✅ Yes | `$list->filter(fn($v) => $v > 2)` |
+| `sort()` | ✅ Yes | `$list->sort()` |
+| `unique()` | ✅ Yes | `$list->unique()` |
+| `diff()` | ✅ Yes | `$list->diff([1, 2])` |
+| `slice()` | ✅ Yes | `$list->slice(2)` |
+| `push()` | ❌ No | `$list->push('x')` |
+| `prepend()` | ❌ No | `$list->prepend('x')` |
+| `map()` | ❌ No (already sequential) | `$list->map(fn($v) => $v * 2)` |
+| `transform()` | ✅ Yes (explicitly) | `$list->transform(fn($v) => $v * 2)` |
+
+<Info>
+Reindexing is automatic and transparent. You don't need to call any methods manually - `ListCollection` handles it for you!
+</Info>

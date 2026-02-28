@@ -1,0 +1,367 @@
+---
+title: Iteration
+description: Methods for iterating, partitioning, and slicing ListCollection elements
+---
+
+## Overview
+
+ListCollection provides methods for iterating over elements, reducing to single values, and extracting subsets. All methods maintain sequential integer keys.
+
+## each()
+
+Iterate over each element with a callback.
+
+### Signature
+
+```php
+public function each(callable $callback): static
+```
+
+<ParamField path="callback" type="callable(TValue, int): mixed" required>
+  Callback receives value and index. Return `false` to stop iteration.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3]);
+
+$list->each(function($value, $index) {
+    echo "Index {$index}: {$value}\n";
+});
+// Output:
+// Index 0: 1
+// Index 1: 2
+// Index 2: 3
+```
+
+## reduce()
+
+Reduce the collection to a single value.
+
+### Signature
+
+```php
+public function reduce(callable $callback, $initial = null)
+```
+
+<ParamField path="callback" type="callable(mixed, TValue, int): mixed" required>
+  Callback receives carry value, current value, and index.
+</ParamField>
+
+<ParamField path="initial" type="mixed" default="null">
+  Initial carry value.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3, 4]);
+
+$sum = $list->reduce(fn($carry, $value) => $carry + $value, 0);
+// 10
+
+$product = $list->reduce(fn($carry, $value) => $carry * $value, 1);
+// 24
+```
+
+## chunk()
+
+Break the collection into chunks of a given size.
+
+### Signature
+
+```php
+public function chunk($size): static
+```
+
+<ParamField path="size" type="int" required>
+  The size of each chunk.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$chunks = $list->chunk(2);
+
+$chunks->all();
+// [
+//   0 => ListCollection([0 => 1, 1 => 2]),
+//   1 => ListCollection([0 => 3, 1 => 4]),
+//   2 => ListCollection([0 => 5])
+// ]
+
+$chunks[0]->all();
+// [0 => 1, 1 => 2]
+```
+
+## partition()
+
+Separate elements that pass a test from those that don't.
+
+### Signature
+
+```php
+public function partition(callable $callback): array
+```
+
+<ParamField path="callback" type="callable(TValue, int): bool" required>
+  Test callback. Returns `true` for first partition, `false` for second.
+</ParamField>
+
+**Returns:** `array` - Array containing two `ListCollection` instances: `[passing, failing]`
+
+### Examples
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+
+[$even, $odd] = $list->partition(fn(int $v): bool => $v % 2 === 0);
+
+$even->all();
+// [0 => 2, 1 => 4]
+
+$odd->all();
+// [0 => 1, 1 => 3, 2 => 5]
+```
+
+## splice()
+
+Remove and return a slice of elements, optionally replacing them.
+
+### Signature
+
+```php
+public function splice($offset, $length = null, $replacement = []): static
+```
+
+<ParamField path="offset" type="int" required>
+  Index to start from.
+</ParamField>
+
+<ParamField path="length" type="int|null" default="null">
+  Number of elements to remove. `null` removes to the end.
+</ParamField>
+
+<ParamField path="replacement" type="array" default="[]">
+  Elements to insert at the splice position.
+</ParamField>
+
+### Examples
+
+#### Remove elements
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e']);
+$spliced = $list->splice(1, 2);
+
+$spliced->all();
+// [0 => 'b', 1 => 'c']
+
+$list->all();
+// [0 => 'a', 1 => 'd', 2 => 'e']
+```
+
+#### Replace elements
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd']);
+$spliced = $list->splice(1, 1, ['X', 'Y']);
+
+$spliced->all();
+// [0 => 'b']
+
+$list->all();
+// [0 => 'a', 1 => 'X', 2 => 'Y', 3 => 'c', 4 => 'd']
+```
+
+## slice()
+
+Return a slice of the collection.
+
+### Signature
+
+```php
+public function slice($offset, $length = null): static
+```
+
+<ParamField path="offset" type="int" required>
+  Index to start from.
+</ParamField>
+
+<ParamField path="length" type="int|null" default="null">
+  Number of elements to return. `null` returns to the end.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e']);
+$sliced = $list->slice(2);
+
+$sliced->all();
+// [0 => 'c', 1 => 'd', 2 => 'e']
+
+$sliced = $list->slice(1, 2);
+// [0 => 'b', 1 => 'c']
+```
+
+## take()
+
+Take the first (or last) n elements.
+
+### Signature
+
+```php
+public function take($limit): static
+```
+
+<ParamField path="limit" type="int" required>
+  Number of elements to take. Negative values take from the end.
+</ParamField>
+
+### Examples
+
+#### Take from beginning
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e']);
+$taken = $list->take(3);
+
+$taken->all();
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+#### Take from end (negative count)
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e']);
+$taken = $list->take(-2);
+
+$taken->all();
+// [0 => 'd', 1 => 'e']
+```
+
+## skip()
+
+Skip the first n elements.
+
+### Signature
+
+```php
+public function skip($count): static
+```
+
+<ParamField path="count" type="int" required>
+  Number of elements to skip.
+</ParamField>
+
+### Examples
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e']);
+$skipped = $list->skip(2);
+
+$skipped->all();
+// [0 => 'c', 1 => 'd', 2 => 'e']
+```
+
+## Conditional Iteration Methods
+
+### takeUntil()
+
+Take elements until callback returns `true`.
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$result = $list->takeUntil(fn(int $v): bool => $v > 3);
+
+$result->all();
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+### takeWhile()
+
+Take elements while callback returns `true`.
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$result = $list->takeWhile(fn(int $v): bool => $v <= 3);
+
+$result->all();
+// [0 => 1, 1 => 2, 2 => 3]
+```
+
+### skipUntil()
+
+Skip elements until callback returns `true`.
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$result = $list->skipUntil(fn(int $v): bool => $v >= 3);
+
+$result->all();
+// [0 => 3, 1 => 4, 2 => 5]
+```
+
+### skipWhile()
+
+Skip elements while callback returns `true`.
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$result = $list->skipWhile(fn(int $v): bool => $v < 3);
+
+$result->all();
+// [0 => 3, 1 => 4, 2 => 5]
+```
+
+## Other Iteration Methods
+
+### nth()
+
+Return every nth element.
+
+```php
+$list = new ListCollection(['a', 'b', 'c', 'd', 'e', 'f']);
+$result = $list->nth(2);
+
+$result->all();
+// [0 => 'a', 1 => 'c', 2 => 'e']
+```
+
+### shuffle()
+
+Randomly shuffle the elements.
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$shuffled = $list->shuffle();
+
+// Returns ListCollection with same elements in random order
+// Keys remain sequential: [0, 1, 2, 3, 4]
+```
+
+### random()
+
+Get random element(s).
+
+```php
+$list = new ListCollection([1, 2, 3, 4, 5]);
+$random = $list->random(3);
+
+// Returns ListCollection with 3 random elements
+// Keys: [0, 1, 2]
+```
+
+## Key Points
+
+- All iteration methods maintain sequential keys (0, 1, 2, ...)
+- `each()` for side effects, `reduce()` for aggregation
+- `chunk()` returns collection of collections
+- `partition()` splits into two collections based on condition
+- `splice()` modifies original, `slice()` doesn't
+- `take()` and `skip()` for simple subsetting
+- Conditional methods (`takeUntil`, `skipWhile`, etc.) for dynamic iteration
+- All results are properly reindexed `ListCollection` instances

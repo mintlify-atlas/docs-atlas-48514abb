@@ -1,0 +1,199 @@
+---
+title: List Invariant
+description: Understanding the core constraint that defines ListCollection behavior
+---
+
+## What is the List Invariant?
+
+The **list invariant** is the fundamental rule that makes `ListCollection` different from Laravel's standard `Collection`: **all keys must be sequential integers starting from 0**.
+
+In PHP terms, a list is an array where:
+- Keys are integers: `0, 1, 2, 3, ...`
+- Keys are sequential with no gaps
+- Keys start at 0
+
+PHP 8.1+ provides the `array_is_list()` function to check this invariant:
+
+```php
+array_is_list([0 => 'a', 1 => 'b', 2 => 'c']); // true
+array_is_list([1 => 'a', 2 => 'b', 3 => 'c']); // false (doesn't start at 0)
+array_is_list([0 => 'a', 2 => 'c']); // false (has gaps)
+array_is_list(['x' => 'a', 'y' => 'b']); // false (string keys)
+```
+
+## Why Does This Matter?
+
+### 1. **Predictable Indexing**
+
+With `ListCollection`, you always know how to access elements:
+
+```php
+$list = new ListCollection(['apple', 'banana', 'cherry']);
+
+// Always starts at 0
+echo $list[0]; // "apple"
+echo $list[1]; // "banana"
+echo $list[2]; // "cherry"
+
+// count() - 1 is always the last valid index
+echo $list[count($list) - 1]; // "cherry"
+```
+
+Compare with regular `Collection`:
+
+```php
+$collection = collect(['x' => 'apple', 'y' => 'banana', 'z' => 'cherry']);
+
+echo $collection[0]; // null - index doesn't exist!
+echo $collection['x']; // "apple"
+```
+
+### 2. **Seamless JavaScript/JSON Serialization**
+
+`ListCollection` serializes to JSON arrays, not objects:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+echo $list->toJson();
+// ["a","b","c"]
+```
+
+Regular `Collection` with non-sequential keys becomes a JSON object:
+
+```php
+$collection = collect([5 => 'a', 10 => 'b']);
+echo $collection->toJson();
+// {"5":"a","10":"b"}
+```
+
+<Info>
+See ListCollection.php:656-667 for JSON serialization tests.
+</Info>
+
+### 3. **Compatibility with Array Functions**
+
+Many PHP array functions expect list-style arrays:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+
+// Works as expected
+array_map(fn($x) => $x * 2, $list->all());
+array_filter($list->all(), fn($x) => $x > 1);
+implode(', ', $list->all());
+```
+
+### 4. **Type Safety & IDE Support**
+
+`ListCollection` is typed as `Collection<int, TValue>`, giving you:
+
+- Better IDE autocomplete (keys are always integers)
+- Static analysis tools can verify index access patterns
+- Documentation clearly indicates list semantics
+
+<Info>
+See ListCollection.php:12-17 for the PHPDoc type annotations.
+</Info>
+
+## How ListCollection Maintains the Invariant
+
+`ListCollection` enforces the list invariant through:
+
+### 1. **Constructor Reindexing**
+
+Any input is immediately reindexed:
+
+```php
+// Associative array gets reindexed
+$list = new ListCollection(['a' => 1, 'b' => 2, 'c' => 3]);
+var_dump($list->all());
+// [0 => 1, 1 => 2, 2 => 3]
+
+// Non-sequential keys get reindexed
+$list = new ListCollection([5 => 'a', 10 => 'b', 15 => 'c']);
+var_dump($list->all());
+// [0 => 'a', 1 => 'b', 2 => 'c']
+```
+
+<Info>
+See ListCollection.php:20-24 where the constructor calls `array_values()` to reindex.
+</Info>
+
+### 2. **Automatic Reindexing After Mutations**
+
+Operations that remove elements trigger reindexing:
+
+```php
+$list = new ListCollection(['a', 'b', 'c']);
+// Keys: [0 => 'a', 1 => 'b', 2 => 'c']
+
+unset($list[1]); // Remove 'b'
+// Automatically reindexed to: [0 => 'a', 1 => 'c']
+```
+
+<Info>
+Learn more about automatic reindexing in the [Reindexing](/concepts/reindexing) guide.
+</Info>
+
+### 3. **Blocked Methods**
+
+Methods that would break the invariant are blocked:
+
+```php
+$list = new ListCollection([1, 2, 3]);
+
+// ❌ These throw BadMethodCallException
+$list->flip(); // Would create [1 => 0, 2 => 1, 3 => 2]
+$list->keyBy('id'); // Would create associative keys
+$list->groupBy('type'); // Would create nested associative structure
+```
+
+<Info>
+See the [Blocked Methods](/concepts/blocked-methods) guide for complete details.
+</Info>
+
+## When to Use ListCollection vs Collection
+
+### Use `ListCollection` when:
+
+- Working with ordered sequences (e.g., items in a queue, API response arrays)
+- Serializing to JSON arrays for frontend consumption
+- Keys don't carry semantic meaning (position is what matters)
+- Interfacing with systems that expect array indices
+
+### Use regular `Collection` when:
+
+- Keys have semantic meaning (e.g., user ID → user object)
+- You need to group, index, or organize data by custom keys
+- Maintaining original keys is important
+- Working with associative data structures
+
+## Example: From Collection to ListCollection
+
+Here's how data transforms when moving from `Collection` to `ListCollection`:
+
+```php
+// Start with a regular Collection with meaningful keys
+$users = collect([
+    'john' => ['name' => 'John', 'age' => 30],
+    'jane' => ['name' => 'Jane', 'age' => 25],
+    'bob' => ['name' => 'Bob', 'age' => 35],
+]);
+
+// Convert to ListCollection - keys are discarded, only values remain
+$userList = new ListCollection($users);
+var_dump($userList->all());
+// [
+//     0 => ['name' => 'John', 'age' => 30],
+//     1 => ['name' => 'Jane', 'age' => 25],
+//     2 => ['name' => 'Bob', 'age' => 35],
+// ]
+
+// Now safe to serialize to JSON array
+echo $userList->toJson();
+// [{"name":"John","age":30},{"name":"Jane","age":25},{"name":"Bob","age":35}]
+```
+
+<Warning>
+When converting from `Collection` to `ListCollection`, original keys are **permanently lost**. Make sure you don't need those keys before converting.
+</Warning>
