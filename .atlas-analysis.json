@@ -1,0 +1,104 @@
+{
+  "projectType": "sdk-library",
+  "projectName": "Laravel List",
+  "projectDescription": "A Laravel Collection wrapper that enforces sequential 0-based keys at all times",
+  "theme": "mint",
+  "primaryColor": "#FF2D20",
+  "lightColor": "#FFEDED",
+  "darkColor": "#7C0A02",
+  "navigation": {
+    "groups": [
+      {
+        "group": "Get Started",
+        "pages": [
+          "introduction",
+          "installation",
+          "quickstart"
+        ]
+      },
+      {
+        "group": "Core Concepts",
+        "pages": [
+          "concepts/list-invariant",
+          "concepts/reindexing",
+          "concepts/blocked-methods"
+        ]
+      },
+      {
+        "group": "Usage Guide",
+        "pages": [
+          "guides/creating-lists",
+          "guides/modifying-lists",
+          "guides/filtering-sorting",
+          "guides/transforming-data",
+          "guides/chaining-operations"
+        ]
+      },
+      {
+        "group": "API Reference",
+        "pages": [
+          "api/constructor",
+          "api/adding-elements",
+          "api/removing-elements",
+          "api/filtering",
+          "api/sorting",
+          "api/transforming",
+          "api/iteration",
+          "api/serialization",
+          "api/static-factories"
+        ]
+      },
+      {
+        "group": "Advanced",
+        "pages": [
+          "advanced/type-safety",
+          "advanced/performance",
+          "advanced/migration-from-collection"
+        ]
+      }
+    ]
+  },
+  "keyFeatures": [
+    "Enforces sequential 0-based integer keys at all times",
+    "Automatically re-indexes after operations that remove or filter elements",
+    "Blocks Collection methods that would produce associative keys",
+    "Fully compatible with Laravel Collection's chainable API",
+    "Type-safe operations with PHPStan generics support",
+    "Drop-in replacement for Collection when working with list-like data"
+  ],
+  "publicApiSurface": [
+    "ListCollection::__construct()",
+    "ListCollection::make()",
+    "ListCollection::times()",
+    "ListCollection::wrap()",
+    "ListCollection::offsetSet()",
+    "ListCollection::offsetUnset()",
+    "ListCollection::pull()",
+    "ListCollection::prepend()",
+    "ListCollection::forget()",
+    "ListCollection::transform()",
+    "ListCollection::pluck()",
+    "filter() - returns sequential keys",
+    "sort() - returns sequential keys",
+    "unique() - returns sequential keys",
+    "diff() - returns sequential keys",
+    "intersect() - returns sequential keys",
+    "slice() - returns sequential keys",
+    "reverse() - returns sequential keys",
+    "except() - returns sequential keys",
+    "only() - returns sequential keys",
+    "map() - returns ListCollection",
+    "reject() - returns sequential keys",
+    "where() - returns sequential keys",
+    "splice() - returns sequential keys",
+    "take() - returns sequential keys",
+    "skip() - returns sequential keys",
+    "flatten() - returns sequential keys",
+    "merge() - returns sequential keys",
+    "pad() - returns sequential keys",
+    "shuffle() - returns sequential keys",
+    "partition() - returns two ListCollections",
+    "concat() - returns sequential keys",
+    "chunk() - returns ListCollection of ListCollections"
+  ]
+}
