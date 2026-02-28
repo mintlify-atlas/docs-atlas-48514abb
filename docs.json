@@ -10,12 +10,12 @@
   "navbar": {
     "primary": {
       "type": "github",
-      "href": "https://github.com/derheyne/laravel-list"
+      "href": "https://github.com/dhy/laravel-list"
     }
   },
   "footer": {
     "socials": {
-      "github": "https://github.com/derheyne/laravel-list"
+      "github": "https://github.com/dhy/laravel-list"
     }
   },
   "navigation": {
